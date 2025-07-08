@@ -13,3 +13,6 @@ htmlcov/
 # Test artifacts
 .pytest_cache/
 .tox/
+
+# Security scan reports
+bandit-report.json
