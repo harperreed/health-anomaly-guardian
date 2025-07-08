@@ -1,18 +1,40 @@
 [project]
 name = "health-anomaly-guardian"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.1.2"
+authors = [
+  { name="Harper Reed", email="harper@nata2.org" },
+]
+description = "AI-powered health anomaly detection system using sleep and wellness data"
 readme = "README.md"
 requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+keywords = ["health", "anomaly-detection", "sleep", "wellness", "ai", "machine-learning"]
 dependencies = [
     "numpy>=2.2.6",
-    "emfitapi-python",
+    "emfitapi-python>=0.1.0",
     "pandas>=2.3.1",
     "python-dotenv>=1.1.1",
     "openai>=1.93.1",
     "scikit-learn>=1.6.1",
     "rich>=14.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/harperreed/health-anomaly-guardian"
+Repository = "https://github.com/harperreed/health-anomaly-guardian"
+Issues = "https://github.com/harperreed/health-anomaly-guardian/issues"
+Documentation = "https://github.com/harperreed/health-anomaly-guardian#readme"
 
 [dependency-groups]
 dev = [
@@ -25,8 +47,6 @@ dev = [
     "requests>=2.32.0",
 ]
 
-[tool.uv.sources]
-emfitapi-python = { git = "https://github.com/harperreed/emfitapi-python.git" }
 
 [build-system]
 requires = ["hatchling"]
@@ -76,6 +96,10 @@ line-ending = "auto"
 [tool.coverage.run]
 source = ["anomaly_detector"]
 omit = ["tests/*"]
+
+[tool.setuptools]
+packages = ["anomaly_detector"]
+
 
 [tool.coverage.report]
 exclude_lines = [
