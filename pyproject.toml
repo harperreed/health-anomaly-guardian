@@ -1,6 +1,6 @@
 [project]
 name = "health-anomaly-guardian"
-version = "0.1.0"
+version = "0.1.2"
 authors = [
   { name="Harper Reed", email="harper@nata2.org" },
 ]
