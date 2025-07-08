@@ -1,128 +1,111 @@
 """
-ABOUTME: Pytest configuration and shared fixtures
-ABOUTME: Provides common test fixtures and mock data for all tests
+Pytest configuration and shared fixtures for plugins_eight tests.
 """
 
+import pytest
+import sys
 import os
-import tempfile
-from datetime import datetime, timedelta
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
-import pytest
-from rich.console import Console
-
-from anomaly_detector import CacheManager, SleepAnomalyDetector
+# Add source directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 
 @pytest.fixture
-def temp_dir():
-    """Provide a temporary directory for testing."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
+def mock_plugins_eight():
+    """Fixture providing a mock plugins_eight module"""
+    with patch('plugins_eight') as mock_module:
+        mock_module.configure_mock(**{
+            'initialize.return_value': True,
+            'process.return_value': 'processed',
+            'cleanup.return_value': None
+        })
+        yield mock_module
 
 
 @pytest.fixture
-def mock_console():
-    """Provide a mock Rich console for testing."""
-    return MagicMock(spec=Console)
-
-
-@pytest.fixture
-def test_env_vars():
-    """Provide test environment variables."""
+def sample_data():
+    """Fixture providing sample test data"""
     return {
-        "IFOREST_CONTAM": "0.05",
-        "IFOREST_TRAIN_WINDOW": "30",
-        "IFOREST_SHOW_N": "3",
-        "EMFIT_TOKEN": "test_token",
-        "EMFIT_DEVICE_ID": "test_device_123",
-        "EMFIT_CACHE_DIR": "./test_cache",
-        "EMFIT_CACHE_ENABLED": "true",
-        "EMFIT_CACHE_TTL_HOURS": "24",
-        "OPENAI_API_KEY": "test_openai_key",
-        "PUSHOVER_APIKEY": "test_pushover_token",
-        "PUSHOVER_USERKEY": "test_pushover_user",
+        'string_data': 'test_string',
+        'numeric_data': 42,
+        'list_data': [1, 2, 3, 4, 5],
+        'dict_data': {'key1': 'value1', 'key2': 'value2'},
+        'boolean_data': True,
+        'none_data': None
     }
 
 
 @pytest.fixture
-def mock_env_vars(test_env_vars):
-    """Mock environment variables for testing."""
-    with patch.dict(os.environ, test_env_vars, clear=False):
-        yield test_env_vars
+def temp_directory(tmp_path):
+    """Fixture providing a temporary directory for file operations"""
+    return tmp_path
 
 
-@pytest.fixture
-def cache_manager(temp_dir):
-    """Provide a CacheManager instance for testing."""
-    return CacheManager(temp_dir / "cache", ttl_hours=1)
+@pytest.fixture(autouse=True)
+def reset_environment():
+    """Auto-use fixture to reset environment between tests"""
+    # Store original environment
+    original_env = dict(os.environ)
+    
+    yield
+    
+    # Restore original environment
+    os.environ.clear()
+    os.environ.update(original_env)
 
 
-@pytest.fixture
-def detector_instance(mock_console, mock_env_vars):
-    """Provide a SleepAnomalyDetector instance for testing."""
-    return SleepAnomalyDetector(mock_console)
+@pytest.fixture(scope="session")
+def session_data():
+    """Session-scoped fixture for data that persists across tests"""
+    return {
+        'session_id': 'test_session_123',
+        'start_time': '2023-01-01T00:00:00Z'
+    }
 
 
-@pytest.fixture
-def sample_sleep_data():
-    """Provide sample sleep data for testing."""
-    dates = [datetime.now() - timedelta(days=i) for i in range(10, 0, -1)]
-    return pd.DataFrame(
-        {
-            "date": dates,
-            "hr": [65, 68, 62, 70, 72, 66, 64, 69, 71, 67],
-            "rr": [14.5, 15.2, 14.1, 15.8, 16.1, 14.7, 14.3, 15.5, 15.9, 14.9],
-            "sleep_dur": [7.5, 8.2, 7.1, 8.5, 8.8, 7.7, 7.3, 8.1, 8.6, 7.9],
-            "score": [85, 88, 82, 90, 92, 86, 83, 89, 91, 87],
-            "tnt": [12, 8, 15, 6, 4, 10, 14, 7, 5, 9],
-        }
+# Pytest markers for test categorization
+def pytest_configure(config):
+    """Configure pytest with custom markers"""
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
+    config.addinivalue_line(
+        "markers", "integration: marks tests as integration tests"
+    )
+    config.addinivalue_line(
+        "markers", "unit: marks tests as unit tests"
+    )
+    config.addinivalue_line(
+        "markers", "security: marks tests as security-related"
+    )
+    config.addinivalue_line(
+        "markers", "performance: marks tests as performance-related"
     )
 
 
-@pytest.fixture
-def mock_emfit_api():
-    """Provide a mock Emfit API for testing."""
-    mock_api = MagicMock()
-    mock_api.get_user.return_value = {
-        "device_settings": [
-            {"device_id": "123", "device_name": "Test Device 1"},
-            {"device_id": "456", "device_name": "Test Device 2"},
-        ]
-    }
-    mock_api.get_trends.return_value = {
-        "data": [
-            {
-                "date": "2024-01-15",
-                "meas_hr_avg": 68.5,
-                "meas_rr_avg": 15.2,
-                "sleep_duration": 8.1,
-                "sleep_score": 87,
-                "tossnturn_count": 8,
-            }
-        ]
-    }
-    return mock_api
+# Custom pytest hooks
+def pytest_collection_modifyitems(config, items):
+    """Modify test collection to add markers based on test names"""
+    for item in items:
+        # Add markers based on test names
+        if "performance" in item.name or "benchmark" in item.name:
+            item.add_marker(pytest.mark.performance)
+        
+        if "security" in item.name:
+            item.add_marker(pytest.mark.security)
+        
+        if "integration" in item.name:
+            item.add_marker(pytest.mark.integration)
+        elif "test_" in item.name:
+            item.add_marker(pytest.mark.unit)
 
 
-@pytest.fixture
-def mock_openai_client():
-    """Provide a mock OpenAI client for testing."""
-    mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.choices[
-        0
-    ].message.content = "This anomaly appears to be caused by elevated heart rate and poor sleep quality, suggesting possible illness or stress."
-    mock_client.chat.completions.create.return_value = mock_response
-    return mock_client
-
-
-@pytest.fixture
-def sample_features():
-    """Fixture for sample feature matrix for ML testing."""
-    import numpy as np
-
-    np.random.seed(42)  # Set seed for reproducible tests
-    return np.random.rand(20, 4)  # 20 samples, 4 features
+# Error handling for missing dependencies
+def pytest_runtest_setup(item):
+    """Setup hook to handle missing dependencies"""
+    # Check for required dependencies
+    try:
+        import plugins_eight
+    except ImportError:
+        pytest.skip("plugins_eight module not available")
