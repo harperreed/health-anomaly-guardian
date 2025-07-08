@@ -77,6 +77,10 @@ line-ending = "auto"
 source = ["anomaly_detector"]
 omit = ["tests/*"]
 
+[tool.setuptools]
+packages = ["anomaly_detector"]
+
+
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
