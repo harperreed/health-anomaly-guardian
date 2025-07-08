@@ -3,3 +3,13 @@ output.txt
 __pycache__/
 *.pyc
 cache
+
+# Coverage files
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Test artifacts
+.pytest_cache/
+.tox/
