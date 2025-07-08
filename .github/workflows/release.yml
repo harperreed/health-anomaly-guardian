@@ -1,0 +1,134 @@
+# ABOUTME: GitHub Actions workflow for automated releases when version changes
+# ABOUTME: Creates GitHub releases with built packages when pyproject.toml version is updated
+
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'pyproject.toml'
+
+permissions:
+  contents: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version-changed: ${{ steps.version-check.outputs.changed }}
+      new-version: ${{ steps.version-check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if version changed
+        id: version-check
+        run: |
+          # Get current version from pyproject.toml
+          CURRENT_VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+
+          # Get previous version from previous commit
+          PREVIOUS_VERSION=$(git show HEAD~1:pyproject.toml | grep '^version = ' | sed 's/version = "\(.*\)"/\1/' || echo "0.0.0")
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "Previous version: $PREVIOUS_VERSION"
+
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Version unchanged"
+          fi
+
+  release:
+    runs-on: ubuntu-latest
+    needs: check-version
+    if: needs.check-version.outputs.version-changed == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run tests
+        run: uv run pytest --cov=anomaly_detector --cov-report=xml
+
+      - name: Run linting
+        run: uv run ruff check .
+
+      - name: Run formatting check
+        run: uv run ruff format --check .
+
+      - name: Build package
+        run: uv build
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get commits since last tag (or all commits if no tags)
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log --oneline ${LAST_TAG}..HEAD --grep="^feat\|^fix\|^docs\|^style\|^refactor\|^test\|^chore" --format="- %s (%h)")
+          else
+            COMMITS=$(git log --oneline --grep="^feat\|^fix\|^docs\|^style\|^refactor\|^test\|^chore" --format="- %s (%h)")
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            COMMITS="- Version bump to ${{ needs.check-version.outputs.new-version }}"
+          fi
+
+          # Create changelog content
+          cat << EOF > CHANGELOG.md
+          ## What's Changed
+
+          $COMMITS
+
+          **Full Changelog**: https://github.com/harperreed/health-anomaly-guardian/compare/${LAST_TAG}...v${{ needs.check-version.outputs.new-version }}
+          EOF
+
+          echo "changelog-file=CHANGELOG.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.new-version }}
+          name: Release v${{ needs.check-version.outputs.new-version }}
+          body_path: CHANGELOG.md
+          files: |
+            dist/*
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to PyPI (if configured)
+        if: secrets.PYPI_API_TOKEN != ''
+        run: |
+          echo "PyPI token detected, uploading package..."
+          uv publish --token ${{ secrets.PYPI_API_TOKEN }}
+        continue-on-error: true
+
+  announce:
+    runs-on: ubuntu-latest
+    needs: [check-version, release]
+    if: needs.check-version.outputs.version-changed == 'true'
+
+    steps:
+      - name: Announce release
+        run: |
+          echo "🎉 Successfully released health-anomaly-guardian v${{ needs.check-version.outputs.new-version }}"
+          echo "📦 Package available at: https://github.com/harperreed/health-anomaly-guardian/releases/tag/v${{ needs.check-version.outputs.new-version }}"
