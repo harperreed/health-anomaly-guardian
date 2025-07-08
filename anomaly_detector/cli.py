@@ -14,6 +14,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from .detector import SleepAnomalyDetector
+from .plugins import PluginManager
 
 # Initialize Rich console
 console = Console()
@@ -38,6 +39,12 @@ def cli() -> argparse.Namespace:
 
     p = argparse.ArgumentParser(
         description="Sleep data anomaly detection using IsolationForest"
+    )
+    p.add_argument(
+        "--plugin",
+        type=str,
+        default=temp_detector.plugin_name,
+        help=f"Sleep tracker plugin to use. Available: {temp_detector.plugin_manager.list_plugins()}",
     )
     p.add_argument(
         "--train-days",
@@ -94,6 +101,11 @@ def cli() -> argparse.Namespace:
         type=str,
         help="Force a specific date (YYYY-MM-DD) to be marked as an outlier for testing",
     )
+    p.add_argument(
+        "--list-plugins",
+        action="store_true",
+        help="List all available sleep tracker plugins",
+    )
     return p.parse_args()
 
 
@@ -103,7 +115,7 @@ def main():
 
     # Override cache settings from CLI args
     if a.no_cache:
-        os.environ["EMFIT_CACHE_ENABLED"] = "false"
+        os.environ["SLEEP_TRACKER_CACHE_ENABLED"] = "false"
 
     # Set up rich logging
     logging.basicConfig(
@@ -114,8 +126,14 @@ def main():
     )
 
     try:
-        # Create detector instance
-        detector = SleepAnomalyDetector(console)
+        # Create detector instance with selected plugin
+        detector = SleepAnomalyDetector(console, a.plugin)
+        
+        # Handle plugin listing
+        if a.list_plugins:
+            console.print(f"🔌 Available sleep tracker plugins: {detector.plugin_manager.list_plugins()}")
+            console.print(f"🔌 Current plugin: {detector.plugin_name}")
+            sys.exit(0)
 
         # Handle cache clearing
         if a.clear_cache:

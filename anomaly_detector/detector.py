@@ -10,11 +10,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from emfit.api import EmfitAPI
 from openai import OpenAI
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
@@ -22,43 +20,50 @@ from sklearn.preprocessing import StandardScaler
 from .cache import CacheManager
 from .config import get_env_float, get_env_int, get_env_var
 from .exceptions import APIError, ConfigError, DataError
+from .plugins import PluginManager
 
 
 class SleepAnomalyDetector:
     """Sleep data anomaly detection using IsolationForest."""
 
-    def __init__(self, console: Console):
+    def __init__(self, console: Console, plugin_name: str = None):
         """Initialize the detector with configuration from environment variables."""
         self.console = console
-        self._load_config()
+        self.plugin_manager = PluginManager(console)
+        self._load_config(plugin_name)
 
-    def _load_config(self):
+    def _load_config(self, plugin_name: str = None):
         """Load and validate configuration from environment variables."""
         try:
+            # Core anomaly detection config
             self.contam_env = get_env_float("IFOREST_CONTAM", 0.05)
             self.window_env = get_env_int("IFOREST_TRAIN_WINDOW", 90)
             self.n_out_env = get_env_int("IFOREST_SHOW_N", 5)
+            
+            # Notification config
             self.pushover_token = get_env_var("PUSHOVER_APIKEY")
             self.pushover_user = get_env_var("PUSHOVER_USERKEY")
 
-            # Emfit API config
-            self.emfit_username = get_env_var("EMFIT_USERNAME")
-            self.emfit_password = get_env_var("EMFIT_PASSWORD")
-            self.emfit_token = get_env_var("EMFIT_TOKEN")
-            self.emfit_device_id = get_env_var("EMFIT_DEVICE_ID")
-            self.emfit_device_ids = get_env_var(
-                "EMFIT_DEVICE_IDS"
-            )  # Comma-separated list
-
-            # Cache config
-            self.cache_dir = Path(get_env_var("EMFIT_CACHE_DIR", "./cache"))
+            # Cache config (now generic, not Emfit-specific)
+            self.cache_dir = Path(get_env_var("SLEEP_TRACKER_CACHE_DIR", "./cache"))
             self.cache_enabled = (
-                get_env_var("EMFIT_CACHE_ENABLED", "true").lower() == "true"
+                get_env_var("SLEEP_TRACKER_CACHE_ENABLED", "true").lower() == "true"
             )
-            self.cache_ttl_hours = get_env_int("EMFIT_CACHE_TTL_HOURS", 24)
+            self.cache_ttl_hours = get_env_int("SLEEP_TRACKER_CACHE_TTL_HOURS", 24)
 
             # OpenAI config
             self.openai_api_key = get_env_var("OPENAI_API_KEY")
+            
+            # Plugin selection
+            self.plugin_name = plugin_name or get_env_var("SLEEP_TRACKER_PLUGIN", "emfit")
+            
+            # Load the selected plugin
+            self.plugin = self.plugin_manager.get_plugin(self.plugin_name)
+            if not self.plugin:
+                available_plugins = self.plugin_manager.list_plugins()
+                raise ConfigError(
+                    f"Plugin '{self.plugin_name}' not found. Available plugins: {available_plugins}"
+                )
 
             # Validate contamination range
             if not 0.0 < self.contam_env < 1.0:
@@ -76,221 +81,23 @@ class SleepAnomalyDetector:
             self.console.print(f"❌ Configuration error: {e}")
             sys.exit(1)
 
-    def get_emfit_api(self) -> EmfitAPI:
-        """Initialize and authenticate with Emfit API."""
-        try:
-            api = EmfitAPI(self.emfit_token)
+    def get_api_client(self):
+        """Initialize and authenticate with sleep tracker API."""
+        return self.plugin.get_api_client()
 
-            if not self.emfit_token:
-                if not (self.emfit_username and self.emfit_password):
-                    raise APIError(
-                        "Either EMFIT_TOKEN or EMFIT_USERNAME/PASSWORD must be set"
-                    )
-
-                with self.console.status(
-                    "[bold green]Authenticating with Emfit API..."
-                ):
-                    login_response = api.login(self.emfit_username, self.emfit_password)
-                    logging.debug(f"Login Response: {login_response}")
-
-                if not login_response or not login_response.get("token"):
-                    raise APIError(f"Authentication failed: {login_response}")
-
-                self.console.print("✅ Successfully authenticated with Emfit API")
-            else:
-                self.console.print("✅ Using Emfit API token")
-
-            return api
-
-        except Exception as e:
-            if isinstance(e, APIError):
-                raise
-            raise APIError(f"Failed to initialize Emfit API: {e}") from e
-
-    def get_device_ids(
-        self, api: EmfitAPI, auto_discover: bool = True
-    ) -> tuple[list[str], dict[str, str]]:
+    def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
         """Get list of device IDs to process and their names."""
-        device_ids = []
-        device_names = {}
+        return self.plugin.get_device_ids(auto_discover)
 
-        # Try auto-discovery first if enabled
-        if auto_discover:
-            try:
-                with self.console.status(
-                    "[bold green]Auto-discovering devices from user info..."
-                ):
-                    user_info = api.get_user()
-                    logging.debug(f"User info: {user_info}")
-
-                    # Extract device IDs from device_settings
-                    if isinstance(user_info, dict) and "device_settings" in user_info:
-                        device_settings = user_info["device_settings"]
-                        if isinstance(device_settings, list) and device_settings:
-                            device_ids = []
-                            device_names = {}
-                            display_names = []
-                            for device in device_settings:
-                                if isinstance(device, dict) and "device_id" in device:
-                                    device_id = str(device["device_id"])
-                                    device_name = device.get("device_name", device_id)
-                                    device_ids.append(device_id)
-                                    device_names[device_id] = device_name
-                                    display_names.append(f"{device_name} ({device_id})")
-
-                            if device_ids:
-                                self.console.print(
-                                    f"📱 Auto-discovered {len(device_ids)} devices: {', '.join(display_names)}"
-                                )
-                                return device_ids, device_names
-            except Exception as e:
-                self.console.print(f"⚠️  Auto-discovery failed: {e}")
-
-        # Fallback to manual configuration
-        if self.emfit_device_ids:
-            device_ids = [
-                device_id.strip()
-                for device_id in self.emfit_device_ids.split(",")
-                if device_id.strip()
-            ]
-            device_names = {device_id: device_id for device_id in device_ids}
-            self.console.print(f"📱 Using configured device IDs: {device_ids}")
-            return device_ids, device_names
-
-        if self.emfit_device_id:
-            device_ids = [self.emfit_device_id]
-            device_names = {self.emfit_device_id: self.emfit_device_id}
-            self.console.print(f"📱 Using single device ID: {device_ids}")
-            return device_ids, device_names
-
-        # Fallback error
-        raise ConfigError(
-            "No device IDs found. Auto-discovery failed and no manual configuration found. "
-            "Please set EMFIT_DEVICE_ID (single device) or EMFIT_DEVICE_IDS (comma-separated list) "
-            "environment variables, or check your API credentials."
-        )
-
-    def fetch_emfit_api_data(
+    def fetch_sleep_data(
         self,
-        api: EmfitAPI,
         device_id: str,
         start_date: datetime,
         end_date: datetime,
         cache: CacheManager,
     ) -> pd.DataFrame:
-        """Fetch sleep data from Emfit API for the specified date range with caching."""
-        data = []
-        current_date = start_date
-        total_days = (end_date - start_date).days + 1
-        failed_dates = []
-        incomplete_dates = []
-        cache_hits = 0
-        cache_misses = 0
-
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TimeElapsedColumn(),
-            console=self.console,
-        ) as progress:
-            task = progress.add_task(
-                f"Fetching {total_days} days of sleep data", total=total_days
-            )
-
-            while current_date <= end_date:
-                date_str = current_date.strftime("%Y-%m-%d")
-
-                try:
-                    progress.update(
-                        task, description=f"Processing {current_date.date()}"
-                    )
-
-                    # Try cache first
-                    trends = cache.get(device_id, date_str)
-                    if trends:
-                        cache_hits += 1
-                        progress.update(
-                            task, description=f"Cache hit: {current_date.date()}"
-                        )
-                    else:
-                        cache_misses += 1
-                        progress.update(
-                            task, description=f"API fetch: {current_date.date()}"
-                        )
-                        trends = api.get_trends(device_id, date_str, date_str)
-
-                        # Cache the response if successful
-                        if trends:
-                            cache.set(device_id, date_str, trends)
-
-                    if trends and "data" in trends and trends["data"]:
-                        sleep_data = trends["data"][0]
-
-                        # Map API data to match our expected format
-                        row = {
-                            "date": pd.to_datetime(sleep_data["date"]),
-                            "hr": sleep_data.get("meas_hr_avg"),
-                            "rr": sleep_data.get("meas_rr_avg"),
-                            "sleep_dur": sleep_data.get("sleep_duration"),
-                            "score": sleep_data.get("sleep_score"),
-                            "tnt": sleep_data.get("tossnturn_count"),
-                        }
-
-                        # Validate essential data
-                        if all(
-                            v is not None
-                            for v in [
-                                row["hr"],
-                                row["rr"],
-                                row["sleep_dur"],
-                                row["score"],
-                            ]
-                        ):
-                            # Additional validation
-                            if row["hr"] > 0 and row["rr"] > 0 and row["sleep_dur"] > 0:
-                                data.append(row)
-                            else:
-                                incomplete_dates.append(current_date.date())
-                        else:
-                            incomplete_dates.append(current_date.date())
-                    else:
-                        failed_dates.append(current_date.date())
-
-                except Exception as e:
-                    failed_dates.append(current_date.date())
-                    logging.error(f"Error fetching data for {current_date.date()}: {e}")
-
-                current_date += timedelta(days=1)
-                progress.advance(task)
-
-        # Display cache statistics
-        if self.cache_enabled:
-            cache_stats = cache.get_stats()
-            self.console.print(
-                f"💾 Cache stats: {cache_hits} hits, {cache_misses} misses, {cache_stats['valid_files']} valid files"
-            )
-
-        # Report results
-        if failed_dates:
-            self.console.print(
-                f"⚠️  Failed to fetch data for {len(failed_dates)} dates: {failed_dates[:5]}{'...' if len(failed_dates) > 5 else ''}"
-            )
-
-        if incomplete_dates:
-            self.console.print(
-                f"⚠️  Incomplete data for {len(incomplete_dates)} dates: {incomplete_dates[:5]}{'...' if len(incomplete_dates) > 5 else ''}"
-            )
-
-        if not data:
-            raise DataError(
-                f"No valid sleep data found for the specified date range ({start_date.date()} to {end_date.date()})"
-            )
-
-        self.console.print(
-            f"✅ Successfully fetched {len(data)} days of valid sleep data"
-        )
-        return pd.DataFrame(data)
+        """Fetch sleep data from the configured sleep tracker API."""
+        return self.plugin.fetch_data(device_id, start_date, end_date, cache)
 
     def preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         """Preprocess the data by handling missing values and outliers."""
@@ -377,7 +184,7 @@ class SleepAnomalyDetector:
                         "token": self.pushover_token,
                         "user": self.pushover_user,
                         "message": msg,
-                        "title": "Emfit Anomaly Alert",
+                        "title": self.plugin.notification_title,
                     },
                     timeout=10,
                 )
@@ -573,7 +380,7 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
 
             if alert:
                 device_info = f" {display_name}" if device_id else ""
-                base_msg = f"⚠️ Emfit{device_info} anomaly {latest.date.date()} (HR {latest.hr:.0f}, RR {latest.rr:.1f}, Score {latest.score:.0f})"
+                base_msg = f"⚠️ {self.plugin.name.title()}{device_info} anomaly {latest.date.date()} (HR {latest.hr:.0f}, RR {latest.rr:.1f}, Score {latest.score:.0f})"
                 if gpt_analysis_result:
                     full_msg = f"{base_msg}\n\n🤖 Analysis: {gpt_analysis_result}"
                     self.notify(full_msg)
@@ -591,7 +398,6 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
         self,
         device_id: str,
         device_name: str,
-        api: EmfitAPI,
         cache: CacheManager,
         window: int,
         contamin: float,
@@ -614,9 +420,8 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
             )
             self.console.print(f"🎯 Contamination rate: {contamin:.2%}")
 
-            # Fetch data from API
-            df = self.fetch_emfit_api_data(
-                api,
+            # Fetch data from sleep tracker API
+            df = self.fetch_sleep_data(
                 device_id,
                 datetime.combine(start_date, datetime.min.time()),
                 datetime.combine(end_date, datetime.min.time()),
@@ -701,10 +506,10 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
         auto_discover: bool = True,
         force_outlier_date: str = None,
     ) -> None:
-        """Run the anomaly detection on Emfit API data for all devices."""
+        """Run the anomaly detection on sleep tracker API data for all devices."""
         try:
             self.console.print(
-                Panel.fit("🔍 Emfit Anomaly Detection Started", style="bold blue")
+                Panel.fit(f"🔍 {self.plugin.name.title()} Anomaly Detection Started", style="bold blue")
             )
 
             # Initialize cache
@@ -718,11 +523,8 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
                         f"🗑️  Cleaned up {expired_count} expired cache files"
                     )
 
-            # Get API instance
-            api = self.get_emfit_api()
-
             # Get device IDs and names
-            device_ids, device_names = self.get_device_ids(api, auto_discover)
+            device_ids, device_names = self.get_device_ids(auto_discover)
 
             if len(device_ids) == 0:
                 raise ConfigError("No device IDs found to process")
@@ -740,7 +542,6 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
                 self.run_single_device(
                     device_id,
                     device_name,
-                    api,
                     cache,
                     window,
                     contamin,
@@ -764,20 +565,7 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
 
     def discover_devices(self) -> None:
         """Show user information to help discover device IDs."""
-        try:
-            api = self.get_emfit_api()
-            user_info = api.get_user()
-            self.console.print("🔍 User Information:")
-            self.console.print(user_info)
-            self.console.print(
-                "\n💡 Look for device IDs in the above output and add them to your .env file as:"
-            )
-            self.console.print("   EMFIT_DEVICE_ID=single_device_id")
-            self.console.print("   OR")
-            self.console.print("   EMFIT_DEVICE_IDS=device1,device2,device3")
-        except Exception as e:
-            self.console.print(f"❌ Failed to fetch user info: {e}")
-            raise
+        self.plugin.discover_devices()
 
     def clear_cache(self) -> int:
         """Clear all cached data and return count of files removed."""
