@@ -20,12 +20,22 @@ class OuraPlugin(SleepTrackerPlugin):
     """Oura sleep tracker plugin."""
     
     def _load_config(self) -> None:
-        """Load Oura-specific configuration from environment variables."""
+        """
+        Load Oura API token and device ID from environment variables and store them as instance attributes.
+        """
         self.api_token = get_env_var("OURA_API_TOKEN")
         self.device_id = get_env_var("OURA_DEVICE_ID")
     
     def get_api_client(self):
-        """Initialize and return authenticated Oura API client."""
+        """
+        Initializes and returns an authenticated Oura API client.
+        
+        Raises:
+            APIError: If the Oura API token is not set in the environment.
+        
+        Returns:
+            An authenticated Oura API client instance, or None if not implemented.
+        """
         if not self.api_token:
             raise APIError("OURA_API_TOKEN environment variable must be set")
         
@@ -35,7 +45,20 @@ class OuraPlugin(SleepTrackerPlugin):
         return None  # Placeholder
     
     def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
-        """Get list of device IDs to process and their names."""
+        """
+        Return the list of Oura device IDs to process and a mapping of device IDs to device names.
+        
+        If a device ID is configured, returns it directly. If not and auto-discovery is enabled, attempts to discover the device (currently a placeholder implementation). Raises ConfigError if no device ID is found or discoverable.
+        
+        Parameters:
+            auto_discover (bool): Whether to attempt automatic device discovery if no device ID is configured.
+        
+        Returns:
+            tuple[list[str], dict[str, str]]: A list of device IDs and a dictionary mapping device IDs to device names.
+        
+        Raises:
+            ConfigError: If no device ID is found or discoverable.
+        """
         # For Oura, typically there's one device per account
         if self.device_id:
             device_ids = [self.device_id]
@@ -69,7 +92,20 @@ class OuraPlugin(SleepTrackerPlugin):
         end_date: datetime,
         cache: CacheManager,
     ) -> pd.DataFrame:
-        """Fetch sleep data from Oura API for the specified date range with caching."""
+        """
+        Fetches sleep data for a specified Oura device and date range, utilizing caching to minimize redundant API calls.
+        
+        Attempts to retrieve cached sleep data for each day in the range; if unavailable, would fetch from the Oura API (currently a placeholder). Only days with complete data are included in the result. Raises a DataError if no valid data is found.
+        
+        Parameters:
+            device_id (str): The Oura device identifier.
+            start_date (datetime): The start date of the data retrieval period.
+            end_date (datetime): The end date of the data retrieval period.
+            cache (CacheManager): Cache manager used to store and retrieve sleep data.
+        
+        Returns:
+            pd.DataFrame: DataFrame containing the collected sleep data for the specified period.
+        """
         # TODO: Implement actual Oura API data fetching
         # This is a placeholder implementation
         
@@ -142,7 +178,11 @@ class OuraPlugin(SleepTrackerPlugin):
         return pd.DataFrame(data)
     
     def discover_devices(self) -> None:
-        """Show device discovery information to help user configure devices."""
+        """
+        Displays instructions and information to assist users in configuring Oura devices.
+        
+        Provides guidance for manual configuration and indicates that automated device discovery is not yet implemented. Raises any exceptions encountered during the process.
+        """
         try:
             # TODO: Implement actual device discovery
             self.console.print("🔍 Oura Device Discovery:")
@@ -158,5 +198,7 @@ class OuraPlugin(SleepTrackerPlugin):
     
     @property
     def notification_title(self) -> str:
-        """Title to use for push notifications."""
+        """
+        Returns the title string used for push notifications related to Oura anomaly alerts.
+        """
         return "Oura Anomaly Alert"
