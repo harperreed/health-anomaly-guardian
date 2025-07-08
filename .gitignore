@@ -1,0 +1,5 @@
+.env
+output.txt
+__pycache__/
+*.pyc
+cache
