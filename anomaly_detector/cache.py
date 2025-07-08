@@ -8,7 +8,6 @@ import json
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Optional
 
 
 class CacheManager:
@@ -37,21 +36,21 @@ class CacheManager:
         expiry_time = datetime.now() - timedelta(hours=self.ttl_hours)
         return file_time > expiry_time
 
-    def get(self, device_id: str, date: str) -> Optional[Dict]:
+    def get(self, device_id: str, date: str) -> dict | None:
         """Get cached API response if available and valid."""
         cache_key = self._get_cache_key(device_id, date)
         cache_path = self._get_cache_path(cache_key)
 
         if self._is_cache_valid(cache_path):
             try:
-                with open(cache_path, "r") as f:
+                with open(cache_path) as f:
                     return json.load(f)
             except Exception as e:
                 logging.debug(f"Cache read error for {date}: {e}")
                 return None
         return None
 
-    def set(self, device_id: str, date: str, data: Dict) -> None:
+    def set(self, device_id: str, date: str, data: dict) -> None:
         """Cache API response data."""
         cache_key = self._get_cache_key(device_id, date)
         cache_path = self._get_cache_path(cache_key)
@@ -74,7 +73,7 @@ class CacheManager:
                     logging.debug(f"Error removing {cache_file}: {e}")
         return removed
 
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """Get cache statistics."""
         cache_files = list(self.cache_dir.glob("*.json"))
         valid_files = [f for f in cache_files if self._is_cache_valid(f)]

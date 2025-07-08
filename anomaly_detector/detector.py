@@ -7,7 +7,6 @@ import logging
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -21,8 +20,8 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
 from .cache import CacheManager
-from .config import get_env_var, get_env_int, get_env_float
-from .exceptions import ConfigError, APIError, DataError
+from .config import get_env_float, get_env_int, get_env_var
+from .exceptions import APIError, ConfigError, DataError
 
 
 class SleepAnomalyDetector:
@@ -395,7 +394,7 @@ class SleepAnomalyDetector:
 
     def analyze_outlier_with_gpt(
         self, outlier_row: pd.Series, df: pd.DataFrame
-    ) -> Optional[str]:
+    ) -> str | None:
         """Use GPT-o3 to analyze why a specific day is an outlier."""
         if not self.openai_api_key:
             self.console.print("⚠️  No OpenAI API key – GPT analysis skipped")

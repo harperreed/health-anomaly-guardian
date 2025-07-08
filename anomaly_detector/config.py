@@ -4,14 +4,13 @@ ABOUTME: Provides type-safe loading and validation of configuration from environ
 """
 
 import os
-from typing import Optional
 
 from .exceptions import ConfigError
 
 
 def get_env_var(
-    key: str, default: Optional[str] = None, required: bool = False
-) -> Optional[str]:
+    key: str, default: str | None = None, required: bool = False
+) -> str | None:
     """Get environment variable with validation."""
     value = os.getenv(key, default)
     if required and not value:

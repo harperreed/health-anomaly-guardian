@@ -19,14 +19,13 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
-  # TODO: Enable pytest hook once tests are added
-  # - repo: local
-  #   hooks:
-  #     - id: pytest
-  #       name: pytest
-  #       entry: uv run pytest
-  #       language: system
-  #       types: [python]
-  #       pass_filenames: false
-  #       always_run: true
-  #       stages: [pre-commit]
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
