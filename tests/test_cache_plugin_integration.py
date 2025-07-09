@@ -16,16 +16,34 @@ class TestCachePluginIntegration:
 
     @pytest.fixture
     def cache_dir(self, tmp_path):
-        """Create a temporary cache directory."""
+        """
+        Creates and returns a temporary directory path for storing cache files during tests.
+        
+        Parameters:
+            tmp_path (Path): The base temporary directory provided by pytest.
+        
+        Returns:
+            Path: The path to the temporary cache directory.
+        """
         return tmp_path / "cache"
 
     @pytest.fixture
     def cache_manager(self, cache_dir):
-        """Create a CacheManager instance."""
+        """
+        Create and return a CacheManager instance with a 24-hour time-to-live for cached entries.
+        
+        Parameters:
+            cache_dir (str): Path to the directory where cache files will be stored.
+        
+        Returns:
+            CacheManager: An instance configured to use the specified cache directory and TTL.
+        """
         return CacheManager(cache_dir, ttl_hours=24)
 
     def test_cache_key_generation_with_plugin_name(self, cache_manager):
-        """Test that cache keys are different for different plugins."""
+        """
+        Verify that cache keys generated for the same device ID and date are unique when different plugin names are used, including the case with no plugin name.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         
@@ -44,7 +62,9 @@ class TestCachePluginIntegration:
         assert key_no_plugin != key_eight
 
     def test_cache_key_generation_consistent(self, cache_manager):
-        """Test that cache key generation is consistent for same inputs."""
+        """
+        Verify that generating a cache key with the same device ID, date, and plugin name consistently produces identical keys.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         plugin_name = "emfit"
@@ -55,7 +75,9 @@ class TestCachePluginIntegration:
         assert key1 == key2
 
     def test_cache_set_and_get_with_plugin_name(self, cache_manager):
-        """Test caching with plugin names."""
+        """
+        Verifies that data cached with a specific plugin name can only be retrieved using the same plugin name, ensuring isolation between plugins and when no plugin name is provided.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
@@ -76,7 +98,9 @@ class TestCachePluginIntegration:
         assert retrieved_data_no_plugin is None
 
     def test_cache_plugin_isolation(self, cache_manager):
-        """Test that plugins can cache data independently."""
+        """
+        Verify that each plugin can cache and retrieve its own data independently without interference from other plugins.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         
@@ -95,7 +119,9 @@ class TestCachePluginIntegration:
         assert cache_manager.get(device_id, date_str, "eight") == eight_data
 
     def test_cache_backwards_compatibility(self, cache_manager):
-        """Test that cache still works without plugin names."""
+        """
+        Verify that caching and retrieving data without specifying a plugin name remains functional, ensuring backward compatibility.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
@@ -108,7 +134,9 @@ class TestCachePluginIntegration:
         assert retrieved_data == test_data
 
     def test_cache_collision_prevention(self, cache_manager):
-        """Test that cache prevents collisions between plugins with same device IDs."""
+        """
+        Verify that caching data for different plugins using the same device ID does not cause collisions, ensuring each plugin retrieves only its own cached data.
+        """
         device_id = "device_123"  # Same device ID for different plugins
         date_str = "2024-01-15"
         
@@ -124,7 +152,11 @@ class TestCachePluginIntegration:
         assert cache_manager.get(device_id, date_str, "oura") == oura_data
 
     def test_cache_expiration_with_plugin_names(self, cache_manager):
-        """Test that cache expiration works properly with plugin names."""
+        """
+        Verify that cached data associated with a plugin name is not retrievable after its cache file has expired.
+        
+        This test ensures that data cached with a specific plugin name can be retrieved before expiration, but becomes inaccessible once the cache file's modification time exceeds the configured TTL.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
@@ -150,7 +182,11 @@ class TestCachePluginIntegration:
         assert retrieved_data is None
 
     def test_cache_clear_expired_with_plugin_names(self, cache_manager):
-        """Test clearing expired cache files works with plugin names."""
+        """
+        Verify that expired cache files are correctly removed when clearing the cache with multiple plugin names, while valid files remain intact.
+        
+        This test caches data for two different plugins, artificially expires one cache file, and asserts that the expired file is removed while at least one valid cache file persists.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
@@ -177,7 +213,9 @@ class TestCachePluginIntegration:
         assert len(remaining_files) >= 1
 
     def test_cache_stats_with_plugin_names(self, cache_manager):
-        """Test cache statistics work with plugin names."""
+        """
+        Verify that cache statistics correctly report the number of total, valid, and expired cache files when data is cached for multiple plugins using the same device ID and date.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
