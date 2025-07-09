@@ -34,10 +34,10 @@ except Exception as e:
 
 def cli() -> argparse.Namespace:
     """
-    Parses command-line arguments for the sleep anomaly detection CLI.
+    Parse and return command-line arguments for the sleep anomaly detection CLI tool.
     
     Returns:
-        argparse.Namespace: Parsed arguments including plugin selection, training window, anomaly fraction, output options, cache and device discovery controls, and plugin listing.
+        argparse.Namespace: Parsed arguments controlling plugin selection, training window, anomaly detection parameters, output options, cache management, device discovery, and plugin listing.
     """
     # Create a temporary detector instance just to get default values
     temp_detector = SleepAnomalyDetector(console)
@@ -116,9 +116,9 @@ def cli() -> argparse.Namespace:
 
 def main():
     """
-    Runs the command-line interface for the sleep anomaly detection tool, handling argument parsing, environment setup, plugin selection, cache management, device discovery, and execution of the anomaly detector.
+    Execute the main entry point for the sleep anomaly detection CLI tool.
     
-    Exits the program after completing the requested operation or upon encountering an error or interruption.
+    Parses command-line arguments, configures environment and logging, manages plugin selection, cache, and device discovery, and runs the anomaly detection process. Handles special CLI flags for listing plugins, clearing cache, and device discovery, exiting after completing the requested operation or upon error or interruption.
     """
     a = cli()
 

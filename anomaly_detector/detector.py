@@ -27,13 +27,22 @@ class SleepAnomalyDetector:
     """Sleep data anomaly detection using IsolationForest."""
 
     def __init__(self, console: Console, plugin_name: str = None):
-        """Initialize the detector with configuration from environment variables."""
+        """
+        Initialize the SleepAnomalyDetector with the specified console and optional plugin.
+        
+        Loads configuration from environment variables and sets up the plugin manager for sleep tracker integration.
+        """
         self.console = console
         self.plugin_manager = PluginManager(console)
         self._load_config(plugin_name)
 
     def _load_config(self, plugin_name: str = None):
-        """Load and validate configuration from environment variables."""
+        """
+        Load and validate configuration settings from environment variables, including plugin selection, anomaly detection parameters, notification credentials, cache options, and OpenAI API key.
+        
+        Raises:
+            ConfigError: If required configuration values are missing or invalid.
+        """
         try:
             # Plugin selection (validate this first)
             self.plugin_name = plugin_name or get_env_var("SLEEP_TRACKER_PLUGIN", "emfit")
@@ -82,11 +91,21 @@ class SleepAnomalyDetector:
             sys.exit(1)
 
     def get_api_client(self):
-        """Initialize and authenticate with sleep tracker API."""
+        """
+        Returns an authenticated API client instance from the selected sleep tracker plugin.
+        """
         return self.plugin.get_api_client()
 
     def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
-        """Get list of device IDs to process and their names."""
+        """
+        Retrieve the list of available device IDs and their corresponding names from the selected plugin.
+        
+        Parameters:
+        	auto_discover (bool): Whether to automatically discover devices using the plugin.
+        
+        Returns:
+        	A tuple containing a list of device IDs and a dictionary mapping device IDs to device names.
+        """
         return self.plugin.get_device_ids(auto_discover)
 
     def fetch_sleep_data(
@@ -96,11 +115,29 @@ class SleepAnomalyDetector:
         end_date: datetime,
         cache: CacheManager,
     ) -> pd.DataFrame:
-        """Fetch sleep data from the configured sleep tracker API."""
+        """
+        Fetches sleep data for a specified device and date range using the configured sleep tracker plugin.
+        
+        Parameters:
+            device_id (str): The unique identifier of the device to fetch data for.
+            start_date (datetime): The start date of the data retrieval period.
+            end_date (datetime): The end date of the data retrieval period.
+            cache (CacheManager): The cache manager to use for caching API responses.
+        
+        Returns:
+            pd.DataFrame: A DataFrame containing the retrieved sleep data.
+        """
         return self.plugin.fetch_data(device_id, start_date, end_date, cache)
 
     def preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Preprocess the data by handling missing values and outliers."""
+        """
+        Preprocesses the input DataFrame by filling missing numeric values with the median and clipping extreme outliers.
+        
+        Numeric columns (excluding "date") with missing values are filled using the median of each column. Outliers beyond five standard deviations from the mean are clipped to reduce the impact of extreme values. Raises a DataError if preprocessing fails.
+        
+        Returns:
+            pd.DataFrame: The preprocessed DataFrame with missing values filled and outliers clipped.
+        """
         try:
             original_shape = df.shape
 
@@ -169,7 +206,11 @@ class SleepAnomalyDetector:
             raise DataError(f"Error training IsolationForest: {e}") from e
 
     def notify(self, msg: str) -> None:
-        """Send push notification via Pushover."""
+        """
+        Send a push notification with the specified message via Pushover if credentials are configured.
+        
+        If Pushover credentials are missing, the notification is skipped.
+        """
         if not (self.pushover_token and self.pushover_user):
             self.console.print("⚠️  No Pushover credentials – alert skipped")
             return
@@ -279,7 +320,11 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
         device_id: str = None,
         device_name: str = None,
     ) -> None:
-        """Display results in a rich format."""
+        """
+        Display summary statistics, recent outliers, and anomaly alerts for sleep data using rich formatting.
+        
+        Shows a summary table of key sleep metrics, highlights recent outlier days, and provides detailed alert panels if the latest day is anomalous. Optionally includes GPT-based analysis for outliers. Sends notifications if an anomaly is detected and alerting is enabled.
+        """
         # Create summary statistics table
         display_name = device_name or device_id or "Unknown Device"
         title = (
@@ -406,7 +451,21 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
         gpt_analysis: bool = False,
         force_outlier_date: str = None,
     ) -> None:
-        """Run anomaly detection for a single device."""
+        """
+        Run the anomaly detection pipeline for a single sleep tracking device.
+        
+        Fetches and preprocesses sleep data for the specified device and date window, selects relevant features, standardizes them, and applies the IsolationForest algorithm to detect anomalies. Optionally, a specific date can be forced as an outlier for testing. Displays results, including recent outliers and optional GPT-based analysis, and sends notifications if enabled.
+        
+        Parameters:
+            device_id (str): Unique identifier for the device to analyze.
+            device_name (str): Human-readable name of the device.
+            window (int): Number of days to include in the analysis window.
+            contamin (float): Contamination rate for the IsolationForest model.
+            n_out (int): Number of recent outliers to display.
+            alert (bool): Whether to send notifications for detected anomalies.
+            gpt_analysis (bool, optional): Whether to include GPT-based analysis of anomalies.
+            force_outlier_date (str, optional): Date (YYYY-MM-DD) to force as an outlier for testing.
+        """
         try:
             self.console.print(
                 Panel.fit(f"📱 Processing Device: {device_name}", style="bold cyan")
@@ -506,7 +565,11 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
         auto_discover: bool = True,
         force_outlier_date: str = None,
     ) -> None:
-        """Run the anomaly detection on sleep tracker API data for all devices."""
+        """
+        Run anomaly detection across all available sleep tracker devices using the configured plugin.
+        
+        This method initializes caching, retrieves device IDs, and processes each device by running the anomaly detection pipeline. It displays progress and summary panels, handles cache cleanup, and manages error reporting. Optionally, it supports alert notifications, GPT-based anomaly analysis, device auto-discovery, and forcing a specific date as an outlier.
+        """
         try:
             self.console.print(
                 Panel.fit(f"🔍 {self.plugin.name.title()} Anomaly Detection Started", style="bold blue")
@@ -564,11 +627,18 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
             sys.exit(1)
 
     def discover_devices(self) -> None:
-        """Show user information to help discover device IDs."""
+        """
+        Displays information from the selected plugin to assist the user in discovering available device IDs.
+        """
         self.plugin.discover_devices()
 
     def clear_cache(self) -> int:
-        """Clear all cached data and return count of files removed."""
+        """
+        Deletes all cached JSON files in the cache directory.
+        
+        Returns:
+            int: The number of cache files that were removed.
+        """
         cache = CacheManager(self.cache_dir, self.cache_ttl_hours)
         cache_files = list(cache.cache_dir.glob("*.json"))
         for cache_file in cache_files:
