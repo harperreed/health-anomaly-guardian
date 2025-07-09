@@ -195,6 +195,7 @@ class TestCachePluginIntegration:
         assert stats["expired_files"] == 0
         assert isinstance(stats, dict)
         assert all(isinstance(v, int) for v in stats.values())
+
     def test_cache_key_generation_edge_cases(self, cache_manager):
         """Test cache key generation with edge cases."""
         device_id = "test_device_123"

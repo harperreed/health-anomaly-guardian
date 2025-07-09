@@ -273,6 +273,7 @@ class TestEmfitPlugin:
         
         with pytest.raises(Exception, match="API error"):
             self.plugin.discover_devices()
+    
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_fetch_data_empty_response(self, mock_emfit_api):
         """Test data fetching with empty API response."""

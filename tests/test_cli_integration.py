@@ -21,8 +21,12 @@ class TestCLIIntegration(unittest.TestCase):
     def test_cli_execution_from_command_line(self):
         """Test CLI can be executed from command line"""
         try:
-            result = subprocess.run([sys.executable, '-m', 'cli', '--help'], 
-                                  capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                [sys.executable, '-m', 'cli', '--help'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
             # Should not crash
             self.assertIsNotNone(result.returncode)
         except subprocess.TimeoutExpired:
@@ -35,12 +39,17 @@ class TestCLIIntegration(unittest.TestCase):
         """Test CLI works with pipes"""
         try:
             # Test with echo piped to CLI
-            process1 = subprocess.Popen(['echo', 'test'], stdout=subprocess.PIPE)
-            process2 = subprocess.Popen([sys.executable, '-m', 'cli'], 
-                                      stdin=process1.stdout, 
-                                      stdout=subprocess.PIPE, 
-                                      stderr=subprocess.PIPE, 
-                                      text=True)
+            process1 = subprocess.Popen(
+                ['echo', 'test'],
+                stdout=subprocess.PIPE
+            )
+            process2 = subprocess.Popen(
+                [sys.executable, '-m', 'cli'],
+                stdin=process1.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
             process1.stdout.close()
             stdout, stderr = process2.communicate(timeout=10)
             
@@ -55,11 +64,13 @@ class TestCLIIntegration(unittest.TestCase):
         """Test CLI handles large input gracefully"""
         try:
             large_input = "test\n" * 10000
-            result = subprocess.run([sys.executable, '-m', 'cli'], 
-                                  input=large_input, 
-                                  capture_output=True, 
-                                  text=True, 
-                                  timeout=30)
+            result = subprocess.run(
+                [sys.executable, '-m', 'cli'],
+                input=large_input,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
             # Should not crash
             self.assertIsNotNone(result.returncode)
         except subprocess.TimeoutExpired:

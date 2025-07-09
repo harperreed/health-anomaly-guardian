@@ -127,6 +127,7 @@ class TestDetectorPluginIntegration:
                     available_plugins = detector.plugin_manager.list_plugins()
                     assert len(available_plugins) > 0
                     assert "emfit" in available_plugins
+
     def test_detector_environment_variable_defaults(self):
         """Test detector uses appropriate defaults when environment variables are missing."""
         minimal_env = {
