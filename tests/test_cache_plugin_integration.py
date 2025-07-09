@@ -2,10 +2,9 @@
 Tests for the cache manager integration with plugin names.
 """
 
-import json
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from datetime import datetime, timedelta
 
 from anomaly_detector.cache import CacheManager

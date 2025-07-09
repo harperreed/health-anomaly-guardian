@@ -1,6 +1,6 @@
 """
-ABOUTME: Integration tests for SleepAnomalyDetector with plugin system
-ABOUTME: Tests detector initialization and plugin integration
+Integration tests for SleepAnomalyDetector with plugin system
+Tests detector initialization and plugin integration
 """
 
 import pytest
