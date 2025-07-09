@@ -5,7 +5,7 @@ ABOUTME: Handles Eight Sleep API integration for sleep data fetching and device 
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 
 import pandas as pd
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -16,44 +16,92 @@ from ..exceptions import APIError, ConfigError, DataError
 from . import SleepTrackerPlugin
 
 
+class EightSleepAPIClient:
+    """Placeholder Eight Sleep API client for future implementation."""
+    
+    def __init__(self, username: str, password: str):
+        self.username = username
+        self.password = password
+        self.base_url = "https://client-api.8slp.net/v1"
+        self.session_token = None
+    
+    def authenticate(self) -> dict:
+        """Authenticate with Eight Sleep API."""
+        # TODO: Implement actual authentication
+        self.session_token = "placeholder-session-token"
+        return {
+            "session": {"token": self.session_token},
+            "user": {"userId": "eight-user-default"}
+        }
+    
+    def get_devices(self) -> list:
+        """Get list of devices from Eight Sleep API."""
+        # TODO: Implement actual API call
+        return [
+            {
+                "device_id": "eight-pod-default",
+                "name": "Eight Sleep Pod",
+                "type": "pod",
+                "model": "Pod 3"
+            }
+        ]
+    
+    def get_sleep_session(self, device_id: str, date: str) -> dict:
+        """Get sleep session data from Eight Sleep API."""
+        # TODO: Implement actual API call
+        return {
+            "intervals": [],
+            "score": None,
+            "duration": None
+        }
+
+
 class EightPlugin(SleepTrackerPlugin):
     """Eight Sleep tracker plugin."""
     
     def _load_config(self) -> None:
-        """Load Eight Sleep-specific configuration from environment variables."""
+        """
+        Loads Eight Sleep configuration parameters from environment variables.
+        
+        Sets the plugin's username, password, device ID, and user ID attributes using environment variables required for Eight Sleep API integration.
+        """
         self.username = get_env_var("EIGHT_USERNAME")
         self.password = get_env_var("EIGHT_PASSWORD")
         self.device_id = get_env_var("EIGHT_DEVICE_ID")
         self.user_id = get_env_var("EIGHT_USER_ID")
     
-    def get_api_client(self) -> '_EightSleepAPIStub':
-        """Initialize and return authenticated Eight Sleep API client."""
+    def get_api_client(self) -> EightSleepAPIClient:
+        """
+        Initializes and returns an authenticated Eight Sleep API client.
+        
+        Raises:
+            APIError: If the required Eight Sleep credentials are not set in the environment.
+        
+        Returns:
+            EightSleepAPIClient: An authenticated Eight Sleep API client instance.
+        """
         if not (self.username and self.password):
             raise APIError("EIGHT_USERNAME and EIGHT_PASSWORD environment variables must be set")
         
-        # TODO: Initialize actual Eight Sleep API client
-        # Example: return EightSleepAPI(username=self.username, password=self.password)
+        # Initialize placeholder Eight Sleep API client
+        client = EightSleepAPIClient(self.username, self.password)
+        client.authenticate()
         self.console.print("✅ Eight Sleep API client initialized (placeholder)")
-        return _EightSleepAPIStub(self.username, self.password)
-
-
-class _EightSleepAPIStub:
-    """Stub API client for Eight Sleep - placeholder implementation."""
-    
-    def __init__(self, username: str, password: str):
-        self.username = username
-        self.password = password
-    
-    def get_devices(self):
-        """Placeholder for device retrieval."""
-        return [{"device_id": "eight-pod-default", "name": "Eight Sleep Pod"}]
-    
-    def get_sleep_session(self, device_id: str, date_str: str):
-        """Placeholder for sleep session retrieval."""
-        return None  # Indicates no data available
+        return client
     
     def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
-        """Get list of device IDs to process and their names."""
+        """
+        Return a list of Eight Sleep device IDs and their corresponding names, using either configured values or auto-discovery.
+        
+        Parameters:
+            auto_discover (bool): If True, attempts to auto-discover devices if no device ID is configured.
+        
+        Returns:
+            tuple[list[str], dict[str, str]]: A list of device IDs and a mapping from device IDs to device names.
+        
+        Raises:
+            ConfigError: If no device ID is found and auto-discovery is unsuccessful.
+        """
         # Use configured device ID if available
         if self.device_id:
             device_ids = [self.device_id]
@@ -64,17 +112,21 @@ class _EightSleepAPIStub:
         # Auto-discovery for Eight Sleep devices
         if auto_discover:
             try:
-                # TODO: Implement actual device discovery via Eight Sleep API
-                # api = self.get_api_client()
-                # devices = api.get_devices()
-                # device_ids = [device["device_id"] for device in devices]
-                # device_names = {device["device_id"]: device["name"] for device in devices}
+                # Use placeholder implementation for now
+                api = self.get_api_client()
+                devices = api.get_devices()
+                device_ids = [device["device_id"] for device in devices]
+                device_names = {device["device_id"]: device["name"] for device in devices}
                 
-                # Placeholder auto-discovery
-                device_id = "eight-pod-default"
-                device_names = {device_id: "Eight Sleep Pod"}
-                self.console.print(f"📱 Auto-discovered Eight Sleep device: {device_id}")
-                return [device_id], device_names
+                if device_ids:
+                    self.console.print(f"📱 Auto-discovered Eight Sleep devices: {', '.join(device_ids)}")
+                    return device_ids, device_names
+                else:
+                    # Fallback to default device
+                    device_id = "eight-pod-default"
+                    device_names = {device_id: "Eight Sleep Pod"}
+                    self.console.print(f"📱 Auto-discovered Eight Sleep device: {device_id}")
+                    return [device_id], device_names
             except Exception as e:
                 self.console.print(f"⚠️  Eight Sleep auto-discovery failed: {e}")
         
@@ -90,7 +142,20 @@ class _EightSleepAPIStub:
         end_date: datetime,
         cache: CacheManager,
     ) -> pd.DataFrame:
-        """Fetch sleep data from Eight Sleep API for the specified date range with caching."""
+        """
+        Fetches sleep data for a specified Eight Sleep device and date range, utilizing caching to minimize redundant API calls.
+        
+        Attempts to retrieve cached data for each day in the range; if unavailable, placeholder logic is used (actual API integration pending). Only days with all key metrics present are included in the results. Raises a DataError if no valid data is found.
+        
+        Parameters:
+            device_id (str): The unique identifier of the Eight Sleep device.
+            start_date (datetime): The start date of the data retrieval range.
+            end_date (datetime): The end date of the data retrieval range.
+            cache (CacheManager): Cache manager for storing and retrieving sleep data.
+        
+        Returns:
+            pd.DataFrame: DataFrame containing sleep metrics for each valid day in the specified range.
+        """
         # TODO: Implement actual Eight Sleep API data fetching
         # This is a placeholder implementation
         
@@ -118,17 +183,17 @@ class _EightSleepAPIStub:
                         task, description=f"Processing {current_date.date()}"
                     )
                     
-                    # Try cache first with prefixed key
-                    cache_key = self._get_cache_key(device_id, date_str)
-                    cached_data = cache.get(cache_key)
+                    # Try cache first
+                    cached_data = cache.get(device_id, date_str, self.name)
                     if cached_data:
                         sleep_data = cached_data
                     else:
-                        # TODO: Fetch from Eight Sleep API
-                        # sleep_data = api.get_sleep_session(device_id, date_str)
-                        # cache.set(cache_key, sleep_data)
+                        # Fetch from Eight Sleep API (placeholder implementation)
+                        sleep_data = api.get_sleep_session(device_id, date_str)
+                        cache.set(device_id, date_str, sleep_data, self.name)
                         
-                        # Placeholder data structure
+                        # Note: Actual implementation would return real data
+                        # For now, we set to None to indicate no data available
                         sleep_data = None
                     
                     if sleep_data:
@@ -164,23 +229,33 @@ class _EightSleepAPIStub:
         return pd.DataFrame(data)
     
     def discover_devices(self) -> None:
-        """Show device discovery information to help user configure devices."""
+        """
+        Displays instructions and guidance for configuring Eight Sleep device integration.
+        
+        Provides manual setup steps for environment variables and placeholder messages for future device discovery functionality. If an error occurs during the process, it is displayed and re-raised.
+        """
         try:
-            # TODO: Implement actual device discovery
+            # Use placeholder implementation for now
+            api = self.get_api_client()
+            devices = api.get_devices()
+            
             self.console.print("🔍 Eight Sleep Device Discovery:")
-            self.console.print("TODO: Implement Eight Sleep API device discovery")
-            self.console.print(
-                "\n💡 To configure Eight Sleep manually, add to your .env file:"
-            )
+            for device in devices:
+                self.console.print(f"Device: {device['name']} (ID: {device['device_id']}, Model: {device['model']})")
+            
+            self.console.print("\n💡 To configure Eight Sleep manually, add to your .env file:")
             self.console.print("   EIGHT_USERNAME=your_username")
             self.console.print("   EIGHT_PASSWORD=your_password")
             self.console.print("   EIGHT_DEVICE_ID=your_device_id  # Optional")
             self.console.print("   EIGHT_USER_ID=your_user_id  # Optional")
+            self.console.print("\n⚠️  Note: This is a placeholder implementation. Actual Eight Sleep API integration needed.")
         except Exception as e:
             self.console.print(f"❌ Failed to discover Eight Sleep devices: {e}")
             raise
     
     @property
     def notification_title(self) -> str:
-        """Title to use for push notifications."""
+        """
+        Returns the title string used for Eight Sleep anomaly alert push notifications.
+        """
         return "Eight Sleep Anomaly Alert"

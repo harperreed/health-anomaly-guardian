@@ -5,7 +5,7 @@ ABOUTME: Handles Oura API integration for sleep data fetching and device managem
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 
 import pandas as pd
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -16,41 +16,78 @@ from ..exceptions import APIError, ConfigError, DataError
 from . import SleepTrackerPlugin
 
 
+class OuraAPIClient:
+    """Placeholder Oura API client for future implementation."""
+    
+    def __init__(self, token: str):
+        self.token = token
+        self.base_url = "https://api.ouraring.com/v2"
+    
+    def get_user_info(self) -> dict:
+        """Get user info from Oura API."""
+        # TODO: Implement actual API call
+        return {
+            "id": "oura-user-default",
+            "email": "user@example.com",
+            "age": 30,
+            "weight": 70.0,
+            "height": 175.0,
+            "biological_sex": "male",
+            "timezone": "UTC"
+        }
+    
+    def get_sleep_data(self, start_date: str, end_date: str) -> dict:
+        """Get sleep data from Oura API."""
+        # TODO: Implement actual API call
+        return {
+            "data": [],
+            "next_token": None
+        }
+
+
 class OuraPlugin(SleepTrackerPlugin):
     """Oura sleep tracker plugin."""
     
     def _load_config(self) -> None:
-        """Load Oura-specific configuration from environment variables."""
+        """
+        Loads the Oura API token and device ID from environment variables and stores them in the plugin instance.
+        """
         self.api_token = get_env_var("OURA_API_TOKEN")
         self.device_id = get_env_var("OURA_DEVICE_ID")
     
-    def get_api_client(self) -> '_OuraAPIStub':
-        """Initialize and return authenticated Oura API client."""
+    def get_api_client(self) -> OuraAPIClient:
+        """
+        Initializes and returns an authenticated Oura API client.
+        
+        Raises:
+            APIError: If the Oura API token is not set in the environment variables.
+        
+        Returns:
+            OuraAPIClient: The initialized Oura API client instance.
+        """
         if not self.api_token:
             raise APIError("OURA_API_TOKEN environment variable must be set")
         
-        # TODO: Initialize actual Oura API client
-        # Example: return OuraAPI(token=self.api_token)
+        # Initialize placeholder Oura API client
+        client = OuraAPIClient(self.api_token)
         self.console.print("✅ Oura API client initialized (placeholder)")
-        return _OuraAPIStub(self.api_token)
-
-
-class _OuraAPIStub:
-    """Stub API client for Oura - placeholder implementation."""
-    
-    def __init__(self, token: str):
-        self.token = token
-    
-    def get_user_info(self):
-        """Placeholder for user info retrieval."""
-        return {"device_id": "oura-ring-default", "name": "Oura Ring"}
-    
-    def get_sleep_data(self, date_str: str):
-        """Placeholder for sleep data retrieval."""
-        return None  # Indicates no data available
+        return client
     
     def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
-        """Get list of device IDs to process and their names."""
+        """
+        Return a list of Oura device IDs and their names, using configuration or auto-discovery.
+        
+        If a device ID is configured, returns it and its name. If not, and auto-discovery is enabled, attempts to discover the device ID (placeholder logic). Raises a ConfigError if no device ID can be determined.
+        
+        Parameters:
+            auto_discover (bool): Whether to attempt automatic device discovery if no device ID is configured.
+        
+        Returns:
+            tuple[list[str], dict[str, str]]: A list of device IDs and a mapping from device IDs to device names.
+        
+        Raises:
+            ConfigError: If no device ID is found and auto-discovery fails.
+        """
         # For Oura, typically there's one device per account
         if self.device_id:
             device_ids = [self.device_id]
@@ -61,11 +98,10 @@ class _OuraAPIStub:
         # Auto-discovery for Oura (typically returns user's ring)
         if auto_discover:
             try:
-                # TODO: Implement actual device discovery via Oura API
-                # api = self.get_api_client()
-                # user_info = api.get_user_info()
-                # device_id = user_info.get("device_id", "default")
-                device_id = "oura-ring-default"
+                # Use placeholder implementation for now
+                api = self.get_api_client()
+                user_info = api.get_user_info()
+                device_id = f"oura-ring-{user_info.get('id', 'default')}"
                 device_names = {device_id: "Oura Ring"}
                 self.console.print(f"📱 Auto-discovered Oura device: {device_id}")
                 return [device_id], device_names
@@ -84,7 +120,20 @@ class _OuraAPIStub:
         end_date: datetime,
         cache: CacheManager,
     ) -> pd.DataFrame:
-        """Fetch sleep data from Oura API for the specified date range with caching."""
+        """
+        Fetches sleep data for a given Oura device and date range, utilizing cache when available.
+        
+        Attempts to retrieve daily sleep metrics for each date in the specified range. Cached data is used if present; otherwise, the function is structured to fetch from the Oura API (not yet implemented). Only days with all required metrics are included in the result. Raises a DataError if no valid data is found.
+        
+        Parameters:
+            device_id (str): The Oura device identifier.
+            start_date (datetime): The start date of the data range (inclusive).
+            end_date (datetime): The end date of the data range (inclusive).
+            cache (CacheManager): Cache manager for storing and retrieving sleep data.
+        
+        Returns:
+            pd.DataFrame: DataFrame containing daily sleep metrics for the specified date range.
+        """
         # TODO: Implement actual Oura API data fetching
         # This is a placeholder implementation
         
@@ -112,17 +161,17 @@ class _OuraAPIStub:
                         task, description=f"Processing {current_date.date()}"
                     )
                     
-                    # Try cache first with prefixed key
-                    cache_key = self._get_cache_key(device_id, date_str)
-                    cached_data = cache.get(cache_key)
+                    # Try cache first
+                    cached_data = cache.get(device_id, date_str, self.name)
                     if cached_data:
                         sleep_data = cached_data
                     else:
-                        # TODO: Fetch from Oura API
-                        # sleep_data = api.get_sleep_data(date_str)
-                        # cache.set(cache_key, sleep_data)
+                        # Fetch from Oura API (placeholder implementation)
+                        sleep_data = api.get_sleep_data(date_str, date_str)
+                        cache.set(device_id, date_str, sleep_data, self.name)
                         
-                        # Placeholder data structure
+                        # Note: Actual implementation would return real data
+                        # For now, we set to None to indicate no data available
                         sleep_data = None
                     
                     if sleep_data:
@@ -158,21 +207,30 @@ class _OuraAPIStub:
         return pd.DataFrame(data)
     
     def discover_devices(self) -> None:
-        """Show device discovery information to help user configure devices."""
+        """
+        Displays instructions and information to assist the user in configuring Oura device integration.
+        
+        Provides guidance on manual configuration and indicates that device discovery is not yet implemented. Raises any exceptions encountered during the process.
+        """
         try:
-            # TODO: Implement actual device discovery
+            # Use placeholder implementation for now
+            api = self.get_api_client()
+            user_info = api.get_user_info()
+            
             self.console.print("🔍 Oura Device Discovery:")
-            self.console.print("TODO: Implement Oura API device discovery")
-            self.console.print(
-                "\n💡 To configure Oura manually, add to your .env file:"
-            )
+            self.console.print(f"User ID: {user_info.get('id', 'unknown')}")
+            self.console.print(f"Email: {user_info.get('email', 'unknown')}")
+            self.console.print("\n💡 To configure Oura manually, add to your .env file:")
             self.console.print("   OURA_API_TOKEN=your_oura_token")
             self.console.print("   OURA_DEVICE_ID=your_device_id  # Optional")
+            self.console.print("\n⚠️  Note: This is a placeholder implementation. Actual Oura API integration needed.")
         except Exception as e:
             self.console.print(f"❌ Failed to discover Oura devices: {e}")
             raise
     
     @property
     def notification_title(self) -> str:
-        """Title to use for push notifications."""
+        """
+        Returns the title string used for Oura-related push notifications.
+        """
         return "Oura Anomaly Alert"

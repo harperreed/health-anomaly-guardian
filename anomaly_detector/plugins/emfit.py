@@ -21,7 +21,11 @@ class EmfitPlugin(SleepTrackerPlugin):
     """Emfit sleep tracker plugin."""
     
     def _load_config(self) -> None:
-        """Load Emfit-specific configuration from environment variables."""
+        """
+        Loads Emfit plugin configuration values from environment variables.
+        
+        Retrieves the Emfit username, password, API token, and device IDs (single or comma-separated list) from environment variables and stores them as instance attributes.
+        """
         self.username = get_env_var("EMFIT_USERNAME")
         self.password = get_env_var("EMFIT_PASSWORD")
         self.token = get_env_var("EMFIT_TOKEN")
@@ -29,7 +33,15 @@ class EmfitPlugin(SleepTrackerPlugin):
         self.device_ids = get_env_var("EMFIT_DEVICE_IDS")  # Comma-separated list
     
     def get_api_client(self) -> EmfitAPI:
-        """Initialize and authenticate with Emfit API."""
+        """
+        Creates and returns an authenticated EmfitAPI client using either an API token or username and password.
+        
+        Raises:
+            APIError: If authentication fails or required credentials are missing.
+            
+        Returns:
+            EmfitAPI: An authenticated EmfitAPI client instance.
+        """
         try:
             api = EmfitAPI(self.token)
             
@@ -60,7 +72,17 @@ class EmfitPlugin(SleepTrackerPlugin):
             raise APIError(f"Failed to initialize Emfit API: {e}") from e
     
     def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
-        """Get list of device IDs to process and their names."""
+        """
+        Retrieve a list of Emfit device IDs and their corresponding names, using auto-discovery or manual configuration.
+        
+        If auto-discovery is enabled, attempts to fetch device information from the Emfit API and extract device IDs and names. If auto-discovery fails or is disabled, falls back to device IDs specified in environment variables. Raises a ConfigError if no devices are found.
+        
+        Parameters:
+            auto_discover (bool): Whether to attempt automatic device discovery via the API.
+        
+        Returns:
+            tuple[list[str], dict[str, str]]: A list of device IDs and a mapping from device ID to device name.
+        """
         device_ids = []
         device_names = {}
         
@@ -130,7 +152,20 @@ class EmfitPlugin(SleepTrackerPlugin):
         end_date: datetime,
         cache: CacheManager,
     ) -> pd.DataFrame:
-        """Fetch sleep data from Emfit API for the specified date range with caching."""
+        """
+        Retrieve and cache Emfit sleep data for a device over a specified date range.
+        
+        For each day in the range, attempts to load sleep data from the cache; if unavailable, fetches from the Emfit API and caches the result. Only entries with valid heart rate, respiratory rate, sleep duration, and score are included. Incomplete or failed dates are reported. Raises a DataError if no valid data is found.
+        
+        Parameters:
+            device_id (str): The Emfit device identifier.
+            start_date (datetime): Start of the date range (inclusive).
+            end_date (datetime): End of the date range (inclusive).
+            cache (CacheManager): Cache manager for storing and retrieving daily sleep data.
+        
+        Returns:
+            pd.DataFrame: DataFrame containing valid daily sleep metrics for the specified device and date range.
+        """
         api = self.get_api_client()
         data = []
         current_date = start_date
@@ -159,9 +194,8 @@ class EmfitPlugin(SleepTrackerPlugin):
                         task, description=f"Processing {current_date.date()}"
                     )
                     
-                    # Try cache first with prefixed key
-                    cache_key = self._get_cache_key(device_id, date_str)
-                    trends = cache.get(cache_key)
+                    # Try cache first
+                    trends = cache.get(device_id, date_str, self.name)
                     if trends:
                         cache_hits += 1
                         progress.update(
@@ -174,9 +208,9 @@ class EmfitPlugin(SleepTrackerPlugin):
                         )
                         trends = api.get_trends(device_id, date_str, date_str)
                         
-                        # Cache the response if successful with prefixed key
+                        # Cache the response if successful
                         if trends:
-                            cache.set(cache_key, trends)
+                            cache.set(device_id, date_str, trends, self.name)
                     
                     if trends and "data" in trends and trends["data"]:
                         sleep_data = trends["data"][0]
@@ -246,7 +280,11 @@ class EmfitPlugin(SleepTrackerPlugin):
         return pd.DataFrame(data)
     
     def discover_devices(self) -> None:
-        """Show user information to help discover device IDs."""
+        """
+        Displays Emfit user information to assist in identifying device IDs for configuration.
+        
+        Fetches and prints user details from the Emfit API, guiding the user on how to set device IDs in environment variables. If fetching fails, prints an error message and re-raises the exception.
+        """
         try:
             api = self.get_api_client()
             user_info = api.get_user()
@@ -264,5 +302,7 @@ class EmfitPlugin(SleepTrackerPlugin):
     
     @property
     def notification_title(self) -> str:
-        """Title to use for push notifications."""
+        """
+        Returns the title string used for Emfit anomaly alert push notifications.
+        """
         return "Emfit Anomaly Alert"
