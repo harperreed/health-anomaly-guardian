@@ -11,7 +11,6 @@ from rich.console import Console
 
 from anomaly_detector.plugins.eight import EightPlugin, _EightSleepAPIStub
 from anomaly_detector.exceptions import APIError, ConfigError, DataError
-from anomaly_detector.cache import CacheManager
 
 
 class TestEightPlugin:

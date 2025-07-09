@@ -277,7 +277,7 @@ class TestCachePluginIntegration:
         
         # Should be able to cache and retrieve large data
         cache_manager.set(device_id, date_str, large_data, plugin_name)
-        retrieved = cache_manager.get(device_id, date_str, large_data, plugin_name)
+        retrieved = cache_manager.get(device_id, date_str, plugin_name)
         assert retrieved == large_data
 
     def test_cache_concurrent_access_simulation(self, cache_manager):
