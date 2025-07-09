@@ -48,6 +48,10 @@ class SleepTrackerPlugin(ABC):
         """
         pass
     
+    def _get_cache_key(self, device_id: str, date_str: str) -> str:
+        """Get cache key with plugin prefix to prevent collisions."""
+        return f"{self.name}_{device_id}_{date_str}"
+    
     @abstractmethod
     def fetch_data(
         self,
@@ -101,36 +105,35 @@ class PluginManager:
         """Load all available plugins from the plugins directory."""
         plugins_dir = Path(__file__).parent
         
+        # Define allowed plugin modules for security
+        allowed_modules = ["emfit", "oura", "eight"]
+        
         # Import all plugin modules
         for plugin_file in plugins_dir.glob("*.py"):
             if plugin_file.name.startswith("_") or plugin_file.name == "base.py":
                 continue
                 
             module_name = plugin_file.stem
+            
+            # Security check: only load known plugin modules
+            if module_name not in allowed_modules:
+                logging.warning(f"Skipping unknown plugin module: {module_name}")
+                continue
+                
             try:
                 module = __import__(f"anomaly_detector.plugins.{module_name}", fromlist=[module_name])
                 
                 # Find plugin classes in the module
-                plugin_found = False
                 for attr_name in dir(module):
-                    try:
-                        attr = getattr(module, attr_name)
-                        if (
-                            isinstance(attr, type) and
-                            issubclass(attr, SleepTrackerPlugin) and
-                            attr is not SleepTrackerPlugin
-                        ):
-                            plugin_name = module_name.lower()
-                            self._plugins[plugin_name] = attr
-                            logging.debug(f"Loaded plugin: {plugin_name}")
-                            plugin_found = True
-                            break
-                    except (AttributeError, TypeError) as e:
-                        logging.debug(f"Error inspecting attribute {attr_name} in {module_name}: {e}")
-                        continue
-                
-                if not plugin_found:
-                    logging.warning(f"No valid plugin classes found in {module_name}")
+                    attr = getattr(module, attr_name)
+                    if (
+                        isinstance(attr, type) and
+                        issubclass(attr, SleepTrackerPlugin) and
+                        attr is not SleepTrackerPlugin
+                    ):
+                        plugin_name = module_name.lower()
+                        self._plugins[plugin_name] = attr
+                        logging.debug(f"Loaded plugin: {plugin_name}")
                         
             except ImportError as e:
                 logging.warning(f"Failed to load plugin {module_name}: {e}")
@@ -141,7 +144,11 @@ class PluginManager:
         """Get a plugin instance by name."""
         plugin_class = self._plugins.get(name.lower())
         if plugin_class:
-            return plugin_class(self.console)
+            try:
+                return plugin_class(self.console)
+            except Exception as e:
+                logging.error(f"Failed to instantiate plugin {name}: {e}")
+                return None
         return None
     
     def list_plugins(self) -> List[str]:

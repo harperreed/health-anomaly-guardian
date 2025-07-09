@@ -159,8 +159,9 @@ class EmfitPlugin(SleepTrackerPlugin):
                         task, description=f"Processing {current_date.date()}"
                     )
                     
-                    # Try cache first
-                    trends = cache.get(device_id, date_str, self.name)
+                    # Try cache first with prefixed key
+                    cache_key = self._get_cache_key(device_id, date_str)
+                    trends = cache.get(cache_key)
                     if trends:
                         cache_hits += 1
                         progress.update(
@@ -173,9 +174,9 @@ class EmfitPlugin(SleepTrackerPlugin):
                         )
                         trends = api.get_trends(device_id, date_str, date_str)
                         
-                        # Cache the response if successful
+                        # Cache the response if successful with prefixed key
                         if trends:
-                            cache.set(device_id, date_str, trends, self.name)
+                            cache.set(cache_key, trends)
                     
                     if trends and "data" in trends and trends["data"]:
                         sleep_data = trends["data"][0]
