@@ -20,11 +20,22 @@ class OuraAPIClient:
     """Placeholder Oura API client for future implementation."""
     
     def __init__(self, token: str):
+        """
+        Initialize the OuraAPIClient with the provided API authentication token.
+        
+        Parameters:
+            token (str): The Oura API authentication token.
+        """
         self.token = token
         self.base_url = "https://api.ouraring.com/v2"
     
     def get_user_info(self) -> dict:
-        """Get user info from Oura API."""
+        """
+        Return placeholder user information as a dictionary simulating a response from the Oura API.
+        
+        Returns:
+            dict: A dictionary containing mock user details such as ID, email, age, weight, height, biological sex, and timezone.
+        """
         # TODO: Implement actual API call
         return {
             "id": "oura-user-default",
@@ -37,7 +48,16 @@ class OuraAPIClient:
         }
     
     def get_sleep_data(self, start_date: str, end_date: str) -> dict:
-        """Get sleep data from Oura API."""
+        """
+        Return placeholder sleep data for the specified date range.
+        
+        Parameters:
+            start_date (str): The start date in ISO format (YYYY-MM-DD).
+            end_date (str): The end date in ISO format (YYYY-MM-DD).
+        
+        Returns:
+            dict: A dictionary containing an empty list for 'data' and None for 'next_token'.
+        """
         # TODO: Implement actual API call
         return {
             "data": [],
@@ -50,20 +70,20 @@ class OuraPlugin(SleepTrackerPlugin):
     
     def _load_config(self) -> None:
         """
-        Loads the Oura API token and device ID from environment variables and stores them in the plugin instance.
+        Load the Oura API token and device ID from environment variables into the plugin instance.
         """
         self.api_token = get_env_var("OURA_API_TOKEN")
         self.device_id = get_env_var("OURA_DEVICE_ID")
     
     def get_api_client(self) -> OuraAPIClient:
         """
-        Initializes and returns an authenticated Oura API client.
+        Create and return an authenticated Oura API client using the configured API token.
         
         Raises:
-            APIError: If the Oura API token is not set in the environment variables.
-        
+            APIError: If the Oura API token is not set.
+            
         Returns:
-            OuraAPIClient: The initialized Oura API client instance.
+            OuraAPIClient: An instance of the Oura API client.
         """
         if not self.api_token:
             raise APIError("OURA_API_TOKEN environment variable must be set")
@@ -75,18 +95,18 @@ class OuraPlugin(SleepTrackerPlugin):
     
     def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
         """
-        Return a list of Oura device IDs and their names, using configuration or auto-discovery.
+        Retrieve Oura device IDs and their names from configuration or via auto-discovery.
         
-        If a device ID is configured, returns it and its name. If not, and auto-discovery is enabled, attempts to discover the device ID (placeholder logic). Raises a ConfigError if no device ID can be determined.
+        If a device ID is configured, returns it and its name. If not, and auto-discovery is enabled, attempts to discover the device ID using user information from the Oura API client. Raises a ConfigError if no device ID can be determined.
         
         Parameters:
-            auto_discover (bool): Whether to attempt automatic device discovery if no device ID is configured.
+            auto_discover (bool): If True, attempts to discover the device ID automatically when not configured.
         
         Returns:
             tuple[list[str], dict[str, str]]: A list of device IDs and a mapping from device IDs to device names.
         
         Raises:
-            ConfigError: If no device ID is found and auto-discovery fails.
+            ConfigError: If no device ID is found and auto-discovery is unsuccessful.
         """
         # For Oura, typically there's one device per account
         if self.device_id:
@@ -121,18 +141,18 @@ class OuraPlugin(SleepTrackerPlugin):
         cache: CacheManager,
     ) -> pd.DataFrame:
         """
-        Fetches sleep data for a given Oura device and date range, utilizing cache when available.
+        Retrieve daily sleep metrics for a specified Oura device and date range, using cached data when available.
         
-        Attempts to retrieve daily sleep metrics for each date in the specified range. Cached data is used if present; otherwise, the function is structured to fetch from the Oura API (not yet implemented). Only days with all required metrics are included in the result. Raises a DataError if no valid data is found.
+        Attempts to collect sleep data for each day in the range, prioritizing cached results and falling back to a placeholder API call if necessary. Only days with all required metrics are included in the final DataFrame. Raises a DataError if no valid data is found.
         
         Parameters:
-            device_id (str): The Oura device identifier.
-            start_date (datetime): The start date of the data range (inclusive).
-            end_date (datetime): The end date of the data range (inclusive).
-            cache (CacheManager): Cache manager for storing and retrieving sleep data.
+            device_id (str): Identifier of the Oura device.
+            start_date (datetime): Start date of the data range (inclusive).
+            end_date (datetime): End date of the data range (inclusive).
+            cache (CacheManager): Cache manager for storing and retrieving daily sleep data.
         
         Returns:
-            pd.DataFrame: DataFrame containing daily sleep metrics for the specified date range.
+            pd.DataFrame: DataFrame containing daily sleep metrics for the specified period.
         """
         # TODO: Implement actual Oura API data fetching
         # This is a placeholder implementation
@@ -208,9 +228,9 @@ class OuraPlugin(SleepTrackerPlugin):
     
     def discover_devices(self) -> None:
         """
-        Displays instructions and information to assist the user in configuring Oura device integration.
+        Display instructions and user information to assist with manual Oura device configuration.
         
-        Provides guidance on manual configuration and indicates that device discovery is not yet implemented. Raises any exceptions encountered during the process.
+        Prints the user's Oura ID and email, along with guidance for setting environment variables required for integration. Indicates that device discovery is not yet implemented and raises any exceptions encountered during the process.
         """
         try:
             # Use placeholder implementation for now
@@ -231,6 +251,6 @@ class OuraPlugin(SleepTrackerPlugin):
     @property
     def notification_title(self) -> str:
         """
-        Returns the title string used for Oura-related push notifications.
+        Returns the fixed title for Oura-related push notifications.
         """
         return "Oura Anomaly Alert"

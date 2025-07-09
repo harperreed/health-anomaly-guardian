@@ -20,13 +20,25 @@ class EightSleepAPIClient:
     """Placeholder Eight Sleep API client for future implementation."""
     
     def __init__(self, username: str, password: str):
+        """
+        Initialize the EightSleepAPIClient with user credentials.
+        
+        Parameters:
+            username (str): The Eight Sleep account username.
+            password (str): The Eight Sleep account password.
+        """
         self.username = username
         self.password = password
         self.base_url = "https://client-api.8slp.net/v1"
         self.session_token = None
     
     def authenticate(self) -> dict:
-        """Authenticate with Eight Sleep API."""
+        """
+        Simulate authentication with the Eight Sleep API and return a mock session and user ID.
+        
+        Returns:
+            dict: A dictionary containing a placeholder session token and user ID.
+        """
         # TODO: Implement actual authentication
         self.session_token = "placeholder-session-token"
         return {
@@ -35,7 +47,11 @@ class EightSleepAPIClient:
         }
     
     def get_devices(self) -> list:
-        """Get list of devices from Eight Sleep API."""
+        """
+        Return a list of available devices from the Eight Sleep API.
+        
+        Currently returns a placeholder list with a single default device.
+        """
         # TODO: Implement actual API call
         return [
             {
@@ -47,7 +63,16 @@ class EightSleepAPIClient:
         ]
     
     def get_sleep_session(self, device_id: str, date: str) -> dict:
-        """Get sleep session data from Eight Sleep API."""
+        """
+        Return placeholder sleep session data for a given device and date.
+        
+        Parameters:
+            device_id (str): The identifier of the Eight Sleep device.
+            date (str): The date for which to retrieve the sleep session, in 'YYYY-MM-DD' format.
+        
+        Returns:
+            dict: A dictionary containing empty intervals and None for score and duration.
+        """
         # TODO: Implement actual API call
         return {
             "intervals": [],
@@ -61,9 +86,9 @@ class EightPlugin(SleepTrackerPlugin):
     
     def _load_config(self) -> None:
         """
-        Loads Eight Sleep configuration parameters from environment variables.
+        Load Eight Sleep configuration parameters from environment variables.
         
-        Sets the plugin's username, password, device ID, and user ID attributes using environment variables required for Eight Sleep API integration.
+        Sets the plugin's username, password, device ID, and user ID attributes for API integration.
         """
         self.username = get_env_var("EIGHT_USERNAME")
         self.password = get_env_var("EIGHT_PASSWORD")
@@ -72,13 +97,13 @@ class EightPlugin(SleepTrackerPlugin):
     
     def get_api_client(self) -> EightSleepAPIClient:
         """
-        Initializes and returns an authenticated Eight Sleep API client.
+        Create and return an authenticated Eight Sleep API client using configured credentials.
         
         Raises:
-            APIError: If the required Eight Sleep credentials are not set in the environment.
+            APIError: If the Eight Sleep username or password is not set in the environment.
         
         Returns:
-            EightSleepAPIClient: An authenticated Eight Sleep API client instance.
+            EightSleepAPIClient: An authenticated client instance for interacting with the Eight Sleep API.
         """
         if not (self.username and self.password):
             raise APIError("EIGHT_USERNAME and EIGHT_PASSWORD environment variables must be set")
@@ -91,10 +116,12 @@ class EightPlugin(SleepTrackerPlugin):
     
     def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
         """
-        Return a list of Eight Sleep device IDs and their corresponding names, using either configured values or auto-discovery.
+        Retrieve Eight Sleep device IDs and their names, using either configured values or auto-discovery.
+        
+        If a device ID is configured, returns it directly. Otherwise, attempts to auto-discover devices via the API client if enabled. Raises a ConfigError if no device ID is found and auto-discovery fails.
         
         Parameters:
-            auto_discover (bool): If True, attempts to auto-discover devices if no device ID is configured.
+            auto_discover (bool): Whether to attempt device auto-discovery if no device ID is configured.
         
         Returns:
             tuple[list[str], dict[str, str]]: A list of device IDs and a mapping from device IDs to device names.
@@ -143,14 +170,14 @@ class EightPlugin(SleepTrackerPlugin):
         cache: CacheManager,
     ) -> pd.DataFrame:
         """
-        Fetches sleep data for a specified Eight Sleep device and date range, utilizing caching to minimize redundant API calls.
+        Fetch sleep data for a specified Eight Sleep device and date range, using caching to avoid redundant API calls.
         
-        Attempts to retrieve cached data for each day in the range; if unavailable, placeholder logic is used (actual API integration pending). Only days with all key metrics present are included in the results. Raises a DataError if no valid data is found.
+        Attempts to retrieve cached data for each day; if unavailable, uses a placeholder API call. Only days with all key metrics present are included in the results. Raises a DataError if no valid data is found.
         
         Parameters:
-            device_id (str): The unique identifier of the Eight Sleep device.
-            start_date (datetime): The start date of the data retrieval range.
-            end_date (datetime): The end date of the data retrieval range.
+            device_id (str): Unique identifier of the Eight Sleep device.
+            start_date (datetime): Start date of the data retrieval range.
+            end_date (datetime): End date of the data retrieval range.
             cache (CacheManager): Cache manager for storing and retrieving sleep data.
         
         Returns:
@@ -230,9 +257,9 @@ class EightPlugin(SleepTrackerPlugin):
     
     def discover_devices(self) -> None:
         """
-        Displays instructions and guidance for configuring Eight Sleep device integration.
+        Displays available Eight Sleep devices and provides manual configuration instructions.
         
-        Provides manual setup steps for environment variables and placeholder messages for future device discovery functionality. If an error occurs during the process, it is displayed and re-raised.
+        Prints discovered device information and guides the user on setting required environment variables for integration. If device discovery fails, the error is displayed and re-raised.
         """
         try:
             # Use placeholder implementation for now

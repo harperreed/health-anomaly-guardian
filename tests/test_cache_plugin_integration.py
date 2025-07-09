@@ -16,16 +16,34 @@ class TestCachePluginIntegration:
 
     @pytest.fixture
     def cache_dir(self, tmp_path):
-        """Create a temporary cache directory."""
+        """
+        Creates and returns a temporary directory path for cache storage during tests.
+        
+        Parameters:
+            tmp_path: A pytest-provided temporary directory unique to the test invocation.
+        
+        Returns:
+            Path object representing the cache directory location.
+        """
         return tmp_path / "cache"
 
     @pytest.fixture
     def cache_manager(self, cache_dir):
-        """Create a CacheManager instance."""
+        """
+        Create a CacheManager instance configured to use the specified cache directory with a 24-hour time-to-live for cached entries.
+        
+        Parameters:
+            cache_dir (Path): The directory where cache files will be stored.
+        
+        Returns:
+            CacheManager: An instance of CacheManager using the provided directory and TTL.
+        """
         return CacheManager(cache_dir, ttl_hours=24)
 
     def test_cache_key_generation_with_plugin_name(self, cache_manager):
-        """Test that cache keys are different for different plugins."""
+        """
+        Verify that cache keys generated for the same device and date are unique when different plugin names are used, including the case with no plugin name.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         
@@ -44,7 +62,9 @@ class TestCachePluginIntegration:
         assert key_no_plugin != key_eight
 
     def test_cache_key_generation_consistent(self, cache_manager):
-        """Test that cache key generation is consistent for same inputs."""
+        """
+        Verify that generating a cache key with the same device ID, date, and plugin name consistently produces the same key.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         plugin_name = "emfit"
@@ -55,7 +75,9 @@ class TestCachePluginIntegration:
         assert key1 == key2
 
     def test_cache_set_and_get_with_plugin_name(self, cache_manager):
-        """Test caching with plugin names."""
+        """
+        Verifies that data cached with a specific plugin name can only be retrieved using the same plugin name, ensuring isolation between plugins and preventing access without specifying the correct plugin.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
@@ -76,7 +98,9 @@ class TestCachePluginIntegration:
         assert retrieved_data_no_plugin is None
 
     def test_cache_plugin_isolation(self, cache_manager):
-        """Test that plugins can cache data independently."""
+        """
+        Verify that data cached under different plugin names for the same device and date remains isolated, ensuring each plugin retrieves only its own cached data.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         
@@ -95,7 +119,9 @@ class TestCachePluginIntegration:
         assert cache_manager.get(device_id, date_str, "eight") == eight_data
 
     def test_cache_backwards_compatibility(self, cache_manager):
-        """Test that cache still works without plugin names."""
+        """
+        Verify that caching and retrieval function correctly when no plugin name is specified, ensuring backward compatibility with previous cache behavior.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
@@ -108,7 +134,9 @@ class TestCachePluginIntegration:
         assert retrieved_data == test_data
 
     def test_cache_collision_prevention(self, cache_manager):
-        """Test that cache prevents collisions between plugins with same device IDs."""
+        """
+        Verify that caching data for different plugins with the same device ID and date does not cause collisions, ensuring each plugin retrieves only its own cached data.
+        """
         device_id = "device_123"  # Same device ID for different plugins
         date_str = "2024-01-15"
         
@@ -124,7 +152,9 @@ class TestCachePluginIntegration:
         assert cache_manager.get(device_id, date_str, "oura") == oura_data
 
     def test_cache_expiration_with_plugin_names(self, cache_manager):
-        """Test that cache expiration works properly with plugin names."""
+        """
+        Verify that cached data associated with a plugin name expires as expected and cannot be retrieved after the TTL has elapsed.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
@@ -150,7 +180,9 @@ class TestCachePluginIntegration:
         assert retrieved_data is None
 
     def test_cache_clear_expired_with_plugin_names(self, cache_manager):
-        """Test clearing expired cache files works with plugin names."""
+        """
+        Verify that expired cache files associated with specific plugin names are correctly identified and removed, while valid cache files remain intact.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}
@@ -177,7 +209,9 @@ class TestCachePluginIntegration:
         assert len(remaining_files) >= 1
 
     def test_cache_stats_with_plugin_names(self, cache_manager):
-        """Test cache statistics work with plugin names."""
+        """
+        Verify that cache statistics accurately report the total, valid, and expired cache files when data is cached under multiple plugin names.
+        """
         device_id = "test_device_123"
         date_str = "2024-01-15"
         test_data = {"sleep_score": 85, "hr": 65, "rr": 14}

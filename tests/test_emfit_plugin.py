@@ -18,7 +18,11 @@ class TestEmfitPlugin:
     """Test the Emfit plugin functionality."""
     
     def setup_method(self):
-        """Set up test fixtures."""
+        """
+        Initializes test fixtures and mocks environment variables for EmfitPlugin tests.
+        
+        Sets up a Console instance, prepares mock environment variables for authentication and device configuration, and patches environment variable retrieval to use these mocks before instantiating the EmfitPlugin.
+        """
         self.console = Console()
         
         # Mock environment variables
@@ -34,7 +38,9 @@ class TestEmfitPlugin:
             self.plugin = EmfitPlugin(self.console)
     
     def test_plugin_initialization(self):
-        """Test plugin initializes with correct name and configuration."""
+        """
+        Verify that the Emfit plugin initializes with the expected name, console, and configuration attributes.
+        """
         assert self.plugin.name == "emfitplugin"
         assert self.plugin.console == self.console
         assert self.plugin.token == 'test_token'
@@ -44,11 +50,15 @@ class TestEmfitPlugin:
         assert self.plugin.device_ids == 'device1,device2,device3'
     
     def test_notification_title(self):
-        """Test notification title property."""
+        """
+        Verifies that the plugin's notification title property returns the expected value.
+        """
         assert self.plugin.notification_title == "Emfit Anomaly Alert"
     
     def test_cache_key_generation(self):
-        """Test cache key generation with plugin prefix."""
+        """
+        Test that the plugin's cache key generation method produces the expected key format using the device ID and date string.
+        """
         device_id = "test_device"
         date_str = "2024-01-01"
         
@@ -58,7 +68,11 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_get_api_client_with_token(self, mock_emfit_api):
-        """Test API client initialization with token."""
+        """
+        Test that the API client is initialized using a token when one is provided.
+        
+        Asserts that the EmfitAPI client is created with the token and returned by the plugin.
+        """
         mock_api = Mock()
         mock_emfit_api.return_value = mock_api
         
@@ -69,7 +83,11 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_get_api_client_with_username_password(self, mock_emfit_api):
-        """Test API client initialization with username/password."""
+        """
+        Test that the API client is initialized using username and password authentication when no token is provided.
+        
+        Ensures that the EmfitAPI client is created, the login method is called with the correct credentials, and the resulting client is returned.
+        """
         # Remove token to force username/password auth
         self.plugin.token = None
         
@@ -85,7 +103,11 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_get_api_client_auth_failure(self, mock_emfit_api):
-        """Test API client initialization with authentication failure."""
+        """
+        Test that API client initialization raises an APIError when authentication fails.
+        
+        Simulates a failed login by having the mocked API client return None for the login method, and verifies that an APIError with the message "Authentication failed" is raised.
+        """
         self.plugin.token = None
         
         mock_api = Mock()
@@ -96,7 +118,9 @@ class TestEmfitPlugin:
             self.plugin.get_api_client()
     
     def test_get_api_client_no_credentials(self):
-        """Test API client initialization without credentials."""
+        """
+        Test that API client initialization raises an APIError when no authentication credentials are provided.
+        """
         self.plugin.token = None
         self.plugin.username = None
         self.plugin.password = None
@@ -106,7 +130,9 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_get_device_ids_auto_discovery(self, mock_emfit_api):
-        """Test device ID discovery from API."""
+        """
+        Tests that device IDs and names are correctly discovered from the API when auto-discovery is enabled.
+        """
         mock_api = Mock()
         mock_emfit_api.return_value = mock_api
         mock_api.get_user.return_value = {
@@ -123,7 +149,9 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_get_device_ids_manual_list(self, mock_emfit_api):
-        """Test device IDs from manual configuration (comma-separated)."""
+        """
+        Test that device IDs and names are correctly retrieved from a manually configured comma-separated list when API user lookup fails.
+        """
         mock_api = Mock()
         mock_emfit_api.return_value = mock_api
         mock_api.get_user.side_effect = Exception("API error")
@@ -135,7 +163,11 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_get_device_ids_single_device(self, mock_emfit_api):
-        """Test device ID from single device configuration."""
+        """
+        Test that the plugin retrieves the device ID and name from a single device configuration when auto-discovery fails.
+        
+        Simulates an API error during device discovery and verifies that the plugin falls back to the configured single device ID.
+        """
         self.plugin.device_ids = None
         
         mock_api = Mock()
@@ -149,7 +181,11 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_get_device_ids_no_config(self, mock_emfit_api):
-        """Test device ID retrieval with no configuration."""
+        """
+        Test that device ID retrieval raises a ConfigError when no device IDs are configured and auto-discovery fails.
+        
+        Asserts that the plugin raises a ConfigError with the expected message if both `device_ids` and `device_id` are unset and the API call to discover devices fails.
+        """
         self.plugin.device_ids = None
         self.plugin.device_id = None
         
@@ -162,7 +198,9 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_fetch_data_success(self, mock_emfit_api):
-        """Test successful data fetching."""
+        """
+        Tests that the plugin successfully fetches and parses sleep trend data from the Emfit API, returning a DataFrame with expected values when no cached data is present.
+        """
         mock_api = Mock()
         mock_emfit_api.return_value = mock_api
         mock_api.get_trends.return_value = {
@@ -194,7 +232,11 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_fetch_data_with_cache(self, mock_emfit_api):
-        """Test data fetching with cache hits."""
+        """
+        Test that fetch_data returns cached data when available and does not call the API.
+        
+        Verifies that when valid cached data exists, fetch_data retrieves and returns it as a pandas DataFrame, bypassing the API call.
+        """
         mock_api = Mock()
         mock_emfit_api.return_value = mock_api
         
@@ -223,7 +265,11 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_fetch_data_validation_failure(self, mock_emfit_api):
-        """Test data fetching with validation failures."""
+        """
+        Test that fetch_data raises a DataError when the API returns invalid sleep data.
+        
+        This test simulates a scenario where the fetched data contains invalid values (e.g., missing average heart rate), and verifies that the plugin correctly raises a DataError indicating no valid sleep data was found.
+        """
         mock_api = Mock()
         mock_emfit_api.return_value = mock_api
         mock_api.get_trends.return_value = {
@@ -249,7 +295,9 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_discover_devices(self, mock_emfit_api):
-        """Test device discovery functionality."""
+        """
+        Tests that the device discovery method retrieves device information from the API without raising exceptions.
+        """
         mock_api = Mock()
         mock_emfit_api.return_value = mock_api
         mock_api.get_user.return_value = {
@@ -266,7 +314,11 @@ class TestEmfitPlugin:
     
     @patch('anomaly_detector.plugins.emfit.EmfitAPI')
     def test_discover_devices_error(self, mock_emfit_api):
-        """Test device discovery with API error."""
+        """
+        Test that `discover_devices` raises an exception when the API user call fails.
+        
+        Asserts that an exception with the expected message is raised if the Emfit API returns an error during device discovery.
+        """
         mock_api = Mock()
         mock_emfit_api.return_value = mock_api
         mock_api.get_user.side_effect = Exception("API error")

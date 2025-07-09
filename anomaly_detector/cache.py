@@ -14,12 +14,29 @@ class CacheManager:
     """JSON-based caching for API responses."""
 
     def __init__(self, cache_dir: Path, ttl_hours: int = 24):
+        """
+        Initialize the CacheManager with a cache directory and a time-to-live (TTL) for cache entries.
+        
+        Parameters:
+            cache_dir (Path): Directory where cache files will be stored.
+            ttl_hours (int, optional): Number of hours before a cache entry expires. Defaults to 24.
+        """
         self.cache_dir = cache_dir
         self.ttl_hours = ttl_hours
         self.cache_dir.mkdir(exist_ok=True)
 
     def _get_cache_key(self, device_id: str, date: str, plugin_name: str = None) -> str:
-        """Generate cache key for a device/date combo with optional plugin prefix."""
+        """
+        Generate a unique cache key by hashing the combination of device ID, date, and optionally a plugin name.
+        
+        Parameters:
+            device_id (str): Identifier for the device.
+            date (str): Date string associated with the cache entry.
+            plugin_name (str, optional): Plugin name to further distinguish the cache entry.
+        
+        Returns:
+            str: MD5 hash string used as the cache key.
+        """
         if plugin_name:
             key_data = f"{plugin_name}:{device_id}:{date}"
         else:
@@ -27,11 +44,24 @@ class CacheManager:
         return hashlib.md5(key_data.encode()).hexdigest()
 
     def _get_cache_path(self, cache_key: str) -> Path:
-        """Get the cache file path for a key."""
+        """
+        Return the file path for the given cache key within the cache directory.
+        
+        Parameters:
+            cache_key (str): The unique key identifying the cache entry.
+        
+        Returns:
+            Path: The full path to the corresponding JSON cache file.
+        """
         return self.cache_dir / f"{cache_key}.json"
 
     def _is_cache_valid(self, cache_path: Path) -> bool:
-        """Check if cache file is still valid (not expired)."""
+        """
+        Determine whether the specified cache file exists and has not expired based on the configured TTL.
+        
+        Returns:
+            bool: True if the cache file exists and is within the TTL window; False otherwise.
+        """
         if not cache_path.exists():
             return False
 
@@ -40,7 +70,17 @@ class CacheManager:
         return file_time > expiry_time
 
     def get(self, device_id: str, date: str, plugin_name: str = None) -> dict | None:
-        """Get cached API response if available and valid."""
+        """
+        Retrieve cached data for a given device, date, and optional plugin if the cache entry exists and is not expired.
+        
+        Parameters:
+            device_id (str): Unique identifier for the device.
+            date (str): Date string associated with the cache entry.
+            plugin_name (str, optional): Name of the plugin to further distinguish the cache entry.
+        
+        Returns:
+            dict | None: Cached data as a dictionary if available and valid; otherwise, None.
+        """
         cache_key = self._get_cache_key(device_id, date, plugin_name)
         cache_path = self._get_cache_path(cache_key)
 
@@ -54,7 +94,15 @@ class CacheManager:
         return None
 
     def set(self, device_id: str, date: str, data: dict, plugin_name: str = None) -> None:
-        """Cache API response data."""
+        """
+        Stores API response data in the cache for a given device, date, and optional plugin name.
+        
+        Parameters:
+            device_id (str): Unique identifier for the device.
+            date (str): Date string associated with the cached data.
+            data (dict): The API response data to cache.
+            plugin_name (str, optional): Name of the plugin to further distinguish the cache entry.
+        """
         cache_key = self._get_cache_key(device_id, date, plugin_name)
         cache_path = self._get_cache_path(cache_key)
 

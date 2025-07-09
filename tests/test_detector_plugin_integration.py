@@ -16,7 +16,9 @@ class TestDetectorPluginIntegration:
     """Test the integration between detector and plugin system."""
     
     def setup_method(self):
-        """Set up test fixtures."""
+        """
+        Initializes the test environment by creating a console instance and setting up mocked environment variables for detector and plugin configuration.
+        """
         self.console = Console()
         
         # Mock environment variables
@@ -33,7 +35,11 @@ class TestDetectorPluginIntegration:
         }
     
     def test_detector_loads_default_plugin(self):
-        """Test detector loads default plugin (emfit)."""
+        """
+        Test that the SleepAnomalyDetector loads the default plugin ("emfit") when no plugin name is specified.
+        
+        Asserts that the detector's plugin is initialized, has the expected name, and the plugin name is set to "emfit".
+        """
         with patch('anomaly_detector.detector.get_env_var', side_effect=lambda key, default=None: self.env_vars.get(key, default)):
             with patch('anomaly_detector.detector.get_env_float', side_effect=lambda key, default=None: float(self.env_vars.get(key, default))):
                 with patch('anomaly_detector.detector.get_env_int', side_effect=lambda key, default=None: int(self.env_vars.get(key, default))):
@@ -44,7 +50,11 @@ class TestDetectorPluginIntegration:
                     assert detector.plugin_name == "emfit"
     
     def test_detector_loads_specified_plugin(self):
-        """Test detector loads specified plugin."""
+        """
+        Test that the detector loads the specified plugin when a plugin name is provided.
+        
+        Verifies that the SleepAnomalyDetector initializes with the "oura" plugin when the plugin name is set, and that the loaded plugin has the expected attributes.
+        """
         with patch('anomaly_detector.detector.get_env_var', side_effect=lambda key, default=None: self.env_vars.get(key, default)):
             with patch('anomaly_detector.detector.get_env_float', side_effect=lambda key, default=None: float(self.env_vars.get(key, default))):
                 with patch('anomaly_detector.detector.get_env_int', side_effect=lambda key, default=None: int(self.env_vars.get(key, default))):
@@ -55,7 +65,9 @@ class TestDetectorPluginIntegration:
                     assert detector.plugin_name == "oura"
     
     def test_detector_invalid_plugin_raises_error(self):
-        """Test detector raises error for invalid plugin."""
+        """
+        Verify that initializing the detector with an invalid plugin name raises a SystemExit due to configuration error.
+        """
         with patch('anomaly_detector.detector.get_env_var', side_effect=lambda key, default=None: self.env_vars.get(key, default)):
             with patch('anomaly_detector.detector.get_env_float', side_effect=lambda key, default=None: float(self.env_vars.get(key, default))):
                 with patch('anomaly_detector.detector.get_env_int', side_effect=lambda key, default=None: int(self.env_vars.get(key, default))):
@@ -63,7 +75,9 @@ class TestDetectorPluginIntegration:
                         SleepAnomalyDetector(self.console, plugin_name="nonexistent")
     
     def test_detector_delegates_to_plugin_methods(self):
-        """Test detector properly delegates to plugin methods."""
+        """
+        Verify that the detector delegates method calls to its plugin, ensuring that plugin methods are invoked with the correct arguments and their return values are properly handled.
+        """
         with patch('anomaly_detector.detector.get_env_var', side_effect=lambda key, default=None: self.env_vars.get(key, default)):
             with patch('anomaly_detector.detector.get_env_float', side_effect=lambda key, default=None: float(self.env_vars.get(key, default))):
                 with patch('anomaly_detector.detector.get_env_int', side_effect=lambda key, default=None: int(self.env_vars.get(key, default))):
@@ -90,7 +104,11 @@ class TestDetectorPluginIntegration:
                     detector.plugin.fetch_data.assert_called_once()
     
     def test_detector_config_validation(self):
-        """Test detector configuration validation."""
+        """
+        Verifies that the detector raises a SystemExit when initialized with invalid configuration values.
+        
+        This test sets an invalid contamination value in the environment and asserts that initializing the detector triggers a configuration error resulting in process exit.
+        """
         # Test invalid contamination value
         invalid_env = self.env_vars.copy()
         invalid_env['IFOREST_CONTAM'] = '1.5'  # Invalid: > 1.0
@@ -102,7 +120,9 @@ class TestDetectorPluginIntegration:
                         SleepAnomalyDetector(self.console)
     
     def test_detector_cache_config(self):
-        """Test detector cache configuration."""
+        """
+        Verifies that the SleepAnomalyDetector correctly loads cache configuration values from environment variables.
+        """
         with patch('anomaly_detector.detector.get_env_var', side_effect=lambda key, default=None: self.env_vars.get(key, default)):
             with patch('anomaly_detector.detector.get_env_float', side_effect=lambda key, default=None: float(self.env_vars.get(key, default))):
                 with patch('anomaly_detector.detector.get_env_int', side_effect=lambda key, default=None: int(self.env_vars.get(key, default))):
@@ -113,7 +133,9 @@ class TestDetectorPluginIntegration:
                     assert detector.cache_ttl_hours == 24
     
     def test_detector_plugin_manager_integration(self):
-        """Test detector properly integrates with plugin manager."""
+        """
+        Verify that the SleepAnomalyDetector initializes and integrates with the plugin manager, ensuring the manager is present, uses the correct console, and lists available plugins including "emfit".
+        """
         with patch('anomaly_detector.detector.get_env_var', side_effect=lambda key, default=None: self.env_vars.get(key, default)):
             with patch('anomaly_detector.detector.get_env_float', side_effect=lambda key, default=None: float(self.env_vars.get(key, default))):
                 with patch('anomaly_detector.detector.get_env_int', side_effect=lambda key, default=None: int(self.env_vars.get(key, default))):

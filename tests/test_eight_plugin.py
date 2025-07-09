@@ -18,7 +18,9 @@ class TestEightPlugin:
     """Test the Eight Sleep plugin functionality."""
     
     def setup_method(self):
-        """Set up test fixtures."""
+        """
+        Initializes the test environment by setting up a Console instance, mocking environment variables, and creating an EightPlugin instance with the mocked values.
+        """
         self.console = Console()
         
         # Mock environment variables
@@ -33,7 +35,9 @@ class TestEightPlugin:
             self.plugin = EightPlugin(self.console)
     
     def test_plugin_initialization(self):
-        """Test plugin initializes with correct name and configuration."""
+        """
+        Verify that the Eight Sleep plugin initializes with the correct name, console, and configuration values from environment variables.
+        """
         assert self.plugin.name == "eightplugin"
         assert self.plugin.console == self.console
         assert self.plugin.username == 'test_user'
@@ -42,11 +46,15 @@ class TestEightPlugin:
         assert self.plugin.user_id == 'test_user_456'
     
     def test_notification_title(self):
-        """Test notification title property."""
+        """
+        Verifies that the plugin's notification title property returns the expected string.
+        """
         assert self.plugin.notification_title == "Eight Sleep Anomaly Alert"
     
     def test_cache_key_generation(self):
-        """Test cache key generation with plugin prefix."""
+        """
+        Test that the plugin generates a cache key with the correct prefix, device ID, and date string.
+        """
         device_id = "test_device"
         date_str = "2024-01-01"
         
@@ -55,7 +63,9 @@ class TestEightPlugin:
         assert cache_key == f"eightplugin_{device_id}_{date_str}"
     
     def test_get_api_client_with_credentials(self):
-        """Test API client initialization with credentials."""
+        """
+        Verify that the API client is correctly initialized with the provided credentials and is an instance of the expected stub class.
+        """
         api_client = self.plugin.get_api_client()
         
         assert isinstance(api_client, _EightSleepAPIStub)
@@ -63,28 +73,38 @@ class TestEightPlugin:
         assert api_client.password == 'test_pass'
     
     def test_get_api_client_no_username(self):
-        """Test API client initialization without username."""
+        """
+        Test that get_api_client() raises an APIError when the username is missing.
+        """
         self.plugin.username = None
         
         with pytest.raises(APIError, match="EIGHT_USERNAME and EIGHT_PASSWORD environment variables must be set"):
             self.plugin.get_api_client()
     
     def test_get_api_client_no_password(self):
-        """Test API client initialization without password."""
+        """
+        Test that get_api_client() raises an APIError when the password is missing.
+        """
         self.plugin.password = None
         
         with pytest.raises(APIError, match="EIGHT_USERNAME and EIGHT_PASSWORD environment variables must be set"):
             self.plugin.get_api_client()
     
     def test_get_device_ids_with_config(self):
-        """Test device ID retrieval with configured device."""
+        """
+        Test that `get_device_ids` returns the configured device ID and its name when a device ID is set and auto-discovery is disabled.
+        """
         device_ids, device_names = self.plugin.get_device_ids(auto_discover=False)
         
         assert device_ids == ['test_device_123']
         assert device_names == {'test_device_123': 'Eight Sleep Pod (test_device_123)'}
     
     def test_get_device_ids_auto_discovery(self):
-        """Test device ID retrieval with auto-discovery."""
+        """
+        Test that device IDs are correctly retrieved using auto-discovery when no device ID is configured.
+        
+        Ensures that enabling auto-discovery returns the default device ID and name.
+        """
         self.plugin.device_id = None
         
         device_ids, device_names = self.plugin.get_device_ids(auto_discover=True)
@@ -93,14 +113,18 @@ class TestEightPlugin:
         assert device_names == {'eight-pod-default': 'Eight Sleep Pod'}
     
     def test_get_device_ids_no_config_no_discovery(self):
-        """Test device ID retrieval without configuration or auto-discovery."""
+        """
+        Test that get_device_ids raises ConfigError when no device ID is configured and auto-discovery is disabled.
+        """
         self.plugin.device_id = None
         
         with pytest.raises(ConfigError, match="No Eight Sleep device ID found"):
             self.plugin.get_device_ids(auto_discover=False)
     
     def test_fetch_data_placeholder(self):
-        """Test data fetching (placeholder implementation)."""
+        """
+        Tests that the placeholder fetch_data method raises a DataError when no valid data is found in the cache.
+        """
         cache = Mock()
         cache.get.return_value = None
         cache.get_stats.return_value = {'valid_files': 0}
@@ -113,7 +137,9 @@ class TestEightPlugin:
             self.plugin.fetch_data('test_device', start_date, end_date, cache)
     
     def test_discover_devices(self):
-        """Test device discovery functionality."""
+        """
+        Verifies that the device discovery method executes without raising exceptions.
+        """
         # Should not raise any exceptions
         self.plugin.discover_devices()
 
@@ -122,16 +148,22 @@ class TestEightSleepAPIStub:
     """Test the Eight Sleep API stub functionality."""
     
     def setup_method(self):
-        """Set up test fixtures."""
+        """
+        Set up the API stub instance with test credentials before each test.
+        """
         self.api_stub = _EightSleepAPIStub("test_user", "test_pass")
     
     def test_initialization(self):
-        """Test API stub initialization."""
+        """
+        Verify that the API stub is initialized with the correct username and password.
+        """
         assert self.api_stub.username == "test_user"
         assert self.api_stub.password == "test_pass"
     
     def test_get_devices(self):
-        """Test device retrieval."""
+        """
+        Test that `get_devices()` returns a list containing the default device with expected ID and name.
+        """
         devices = self.api_stub.get_devices()
         
         assert isinstance(devices, list)
@@ -140,7 +172,9 @@ class TestEightSleepAPIStub:
         assert devices[0]["name"] == "Eight Sleep Pod"
     
     def test_get_sleep_session(self):
-        """Test sleep session retrieval."""
+        """
+        Tests that get_sleep_session returns None for the given device ID and date, confirming the placeholder implementation.
+        """
         sleep_data = self.api_stub.get_sleep_session("device_id", "2024-01-01")
         
         assert sleep_data is None  # Placeholder implementation
