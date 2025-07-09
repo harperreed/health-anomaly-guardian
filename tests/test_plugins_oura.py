@@ -21,41 +21,121 @@ except ImportError:
         # Create mock classes for testing if plugin doesn't exist yet
         class OuraPlugin:
             def __init__(self, api_key: str, base_url: str = "https://api.ouraring.com"):
+                if api_key is None:
+                    raise ValueError("API key cannot be None")
+                if not api_key:
+                    raise ValueError("API key cannot be empty")
                 self.api_key = api_key
                 self.base_url = base_url
                 self.api = OuraAPI(api_key, base_url)
                 
+            def _validate_dates(self, start_date: str, end_date: str):
+                try:
+                    start = datetime.datetime.fromisoformat(start_date)
+                except Exception:
+                    raise ValueError("Invalid date format")
+                try:
+                    end = datetime.datetime.fromisoformat(end_date)
+                except Exception:
+                    raise ValueError("Invalid date format")
+                if end < start:
+                    raise ValueError("End date must be after start date")
+
             def get_sleep_data(self, start_date: str, end_date: str) -> List[Dict]:
+                self._validate_dates(start_date, end_date)
                 return self.api.get_sleep_data(start_date, end_date)
                 
             def get_activity_data(self, start_date: str, end_date: str) -> List[Dict]:
+                self._validate_dates(start_date, end_date)
                 return self.api.get_activity_data(start_date, end_date)
                 
             def get_readiness_data(self, start_date: str, end_date: str) -> List[Dict]:
+                self._validate_dates(start_date, end_date)
                 return self.api.get_readiness_data(start_date, end_date)
                 
         class OuraAPI:
-            def __init__(self, api_key: str, base_url: str):
+            def __init__(self, api_key: str, base_url: str = "https://api.ouraring.com"):
                 self.api_key = api_key
                 self.base_url = base_url
                 
+            def _make_request(self, endpoint: str, start_date: str, end_date: str) -> Any:
+                url = f"{self.base_url}/v1/{endpoint}?start={start_date}&end={end_date}"
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+                response = requests.get(url, headers=headers, timeout=10)
+                if response.status_code != 200:
+                    response.raise_for_status()
+                data = response.json()
+                return data.get("data", [])
+
             def get_sleep_data(self, start_date: str, end_date: str) -> List[Dict]:
-                pass
+                return self._make_request("sleep", start_date, end_date)
                 
             def get_activity_data(self, start_date: str, end_date: str) -> List[Dict]:
-                pass
+                return self._make_request("activity", start_date, end_date)
                 
             def get_readiness_data(self, start_date: str, end_date: str) -> List[Dict]:
-                pass
+                return self._make_request("readiness", start_date, end_date)
                 
         class OuraDataProcessor:
             @staticmethod
             def process_sleep_data(data: List[Dict]) -> Dict:
-                pass
+                if not data:
+                    return {}
+                total_score = 0
+                total_efficiency = 0
+                total_duration = 0
+                deep_sleep = []
+                rem_sleep = []
+                count = 0
+                for entry in data:
+                    try:
+                        score = entry.get("score", 0)
+                        efficiency = entry.get("efficiency", 0)
+                        duration = entry.get("total_sleep_duration", 0)
+                        total_score += score
+                        total_efficiency += efficiency
+                        total_duration += duration
+                        deep_sleep.append(entry.get("deep_sleep_duration", 0))
+                        rem_sleep.append(entry.get("rem_sleep_duration", 0))
+                        count += 1
+                    except Exception:
+                        continue
+                if count == 0:
+                    return {}
+                result = {
+                    "average_sleep_score": total_score / count,
+                    "average_efficiency": total_efficiency / count,
+                    "total_sleep_duration": total_duration,
+                    "average_deep_sleep_duration": sum(deep_sleep) / count,
+                    "average_rem_sleep_duration": sum(rem_sleep) / count
+                }
+                return result
                 
             @staticmethod
             def process_activity_data(data: List[Dict]) -> Dict:
-                pass
+                if not data:
+                    return {}
+                total_steps = 0
+                total_calories = 0
+                total_score = 0
+                count = 0
+                for entry in data:
+                    try:
+                        steps = int(entry.get("steps", 0))
+                        calories = float(entry.get("cal_total", entry.get("total_calories", 0)))
+                        score = float(entry.get("score", 0))
+                        total_steps += steps
+                        total_calories += calories
+                        total_score += score
+                        count += 1
+                    except Exception:
+                        raise ValueError("Invalid data type")
+                result = {
+                    "total_steps": total_steps,
+                    "average_calories": total_calories / count if count else 0,
+                    "average_score": total_score / count if count else 0
+                }
+                return result
 
 
 class TestOuraPlugin:

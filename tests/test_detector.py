@@ -921,4 +921,3 @@ class TestSleepAnomalyDetector:
         assert model is not None
         predictions = model.predict(X)
         assert len(predictions) == 100
-
