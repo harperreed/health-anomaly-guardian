@@ -18,9 +18,12 @@ class CacheManager:
         self.ttl_hours = ttl_hours
         self.cache_dir.mkdir(exist_ok=True)
 
-    def _get_cache_key(self, device_id: str, date: str) -> str:
-        """Generate cache key for a device/date combo."""
-        key_data = f"{device_id}:{date}"
+    def _get_cache_key(self, device_id: str, date: str, plugin_name: str = None) -> str:
+        """Generate cache key for a device/date combo, optionally prefixed with plugin name."""
+        if plugin_name:
+            key_data = f"{plugin_name}:{device_id}:{date}"
+        else:
+            key_data = f"{device_id}:{date}"
         return hashlib.md5(key_data.encode()).hexdigest()
 
     def _get_cache_path(self, cache_key: str) -> Path:
@@ -36,9 +39,9 @@ class CacheManager:
         expiry_time = datetime.now() - timedelta(hours=self.ttl_hours)
         return file_time > expiry_time
 
-    def get(self, device_id: str, date: str) -> dict | None:
+    def get(self, device_id: str, date: str, plugin_name: str = None) -> dict | None:
         """Get cached API response if available and valid."""
-        cache_key = self._get_cache_key(device_id, date)
+        cache_key = self._get_cache_key(device_id, date, plugin_name)
         cache_path = self._get_cache_path(cache_key)
 
         if self._is_cache_valid(cache_path):
@@ -50,9 +53,9 @@ class CacheManager:
                 return None
         return None
 
-    def set(self, device_id: str, date: str, data: dict) -> None:
+    def set(self, device_id: str, date: str, data: dict, plugin_name: str = None) -> None:
         """Cache API response data."""
-        cache_key = self._get_cache_key(device_id, date)
+        cache_key = self._get_cache_key(device_id, date, plugin_name)
         cache_path = self._get_cache_path(cache_key)
 
         try:
