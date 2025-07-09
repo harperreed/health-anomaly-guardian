@@ -6,6 +6,7 @@ ABOUTME: Provides modular components for configuration, caching, detection, and 
 from .cache import CacheManager
 from .detector import SleepAnomalyDetector
 from .exceptions import APIError, ConfigError, DataError
+from .plugins import PluginManager, SleepTrackerPlugin
 
 __version__ = "0.1.0"
 __all__ = [
@@ -14,4 +15,6 @@ __all__ = [
     "ConfigError",
     "APIError",
     "DataError",
+    "PluginManager",
+    "SleepTrackerPlugin",
 ]

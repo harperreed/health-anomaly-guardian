@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a modular sleep anomaly detection system that monitors sleep data using IsolationForest machine learning algorithms. Currently supports Emfit devices but designed to be extensible to other sleep tracking systems. The system fetches data from APIs, analyzes it for anomalies, and provides alerts via Pushover notifications with optional GPT analysis.
+This is a modular sleep anomaly detection system that monitors sleep data using IsolationForest machine learning algorithms. Uses a plugin architecture to support multiple sleep tracking systems including Emfit, Oura, and Eight Sleep. The system fetches data from APIs, analyzes it for anomalies, and provides alerts via Pushover notifications with optional GPT analysis.
 
 ## Common Commands
 
@@ -14,6 +14,10 @@ This is a modular sleep anomaly detection system that monitors sleep data using 
 - `uv run main.py --train-days 30` - Use 30 days of training data
 - `uv run main.py --alert` - Send push alerts for anomalies
 - `uv run main.py --gpt-analysis` - Enable GPT analysis for outliers
+- `uv run main.py --plugin emfit` - Use Emfit plugin (default)
+- `uv run main.py --plugin oura` - Use Oura plugin
+- `uv run main.py --plugin eight` - Use Eight Sleep plugin
+- `uv run main.py --list-plugins` - List available plugins
 - `uv run main.py --discover-devices` - Show device discovery info
 - `uv run main.py --clear-cache` - Clear all cached API data
 - `uv run main.py --force-outlier 2024-01-15` - Force a date as outlier for testing
@@ -38,7 +42,12 @@ anomaly_detector/
 ├── config.py           # Environment variable utilities (get_env_var, get_env_int, get_env_float)
 ├── cache.py            # CacheManager class for API response caching
 ├── detector.py         # SleepAnomalyDetector main class
-└── cli.py              # Command-line interface and main entry point
+├── cli.py              # Command-line interface and main entry point
+└── plugins/            # Plugin system for sleep trackers
+    ├── __init__.py     # PluginManager and SleepTrackerPlugin base class
+    ├── emfit.py        # Emfit sleep tracker plugin
+    ├── oura.py         # Oura ring plugin
+    └── eight.py        # Eight Sleep plugin
 
 main.py                 # Simple entry point that imports from package
 ```
@@ -48,6 +57,7 @@ main.py                 # Simple entry point that imports from package
 1. **SleepAnomalyDetector Class** (`anomaly_detector/detector.py`)
    - Main class encapsulating all detection functionality
    - Instance-based configuration management
+   - Plugin-based architecture for sleep tracker support
    - Clean separation of concerns with focused methods
 
 2. **Configuration System** (`anomaly_detector/config.py`)
