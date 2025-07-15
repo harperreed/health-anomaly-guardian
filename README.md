@@ -61,9 +61,10 @@ PUSHOVER_APIKEY=your_pushover_token # For notifications
 PUSHOVER_USERKEY=your_pushover_user
 
 # Caching Configuration
-EMFIT_CACHE_ENABLED=true
-EMFIT_CACHE_DIR=./cache
-EMFIT_CACHE_TTL_HOURS=24
+# Sleep data doesn't change once recorded, so cache is persistent by default
+SLEEP_TRACKER_CACHE_ENABLED=true
+SLEEP_TRACKER_CACHE_DIR=./cache
+SLEEP_TRACKER_CACHE_TTL_HOURS=87600
 ```
 
 ### Usage
@@ -185,9 +186,9 @@ tests/
 | `OPENAI_API_KEY` | - | OpenAI API key for analysis |
 | `PUSHOVER_APIKEY` | - | Pushover API token |
 | `PUSHOVER_USERKEY` | - | Pushover user key |
-| `EMFIT_CACHE_ENABLED` | true | Enable API response caching |
-| `EMFIT_CACHE_DIR` | ./cache | Cache directory path |
-| `EMFIT_CACHE_TTL_HOURS` | 24 | Cache TTL in hours |
+| `SLEEP_TRACKER_CACHE_ENABLED` | true | Enable API response caching |
+| `SLEEP_TRACKER_CACHE_DIR` | ./cache | Cache directory path |
+| `SLEEP_TRACKER_CACHE_TTL_HOURS` | 87600 | Cache TTL in hours (10 years - persistent) |
 
 ## 📈 CI/CD
 

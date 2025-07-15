@@ -29,7 +29,7 @@ class SleepAnomalyDetector:
     def __init__(self, console: Console, plugin_name: str = None):
         """
         Initialize the SleepAnomalyDetector with the specified console and optional plugin.
-        
+
         Loads configuration from environment variables and sets up the plugin manager for sleep tracker integration.
         """
         self.console = console
@@ -39,14 +39,16 @@ class SleepAnomalyDetector:
     def _load_config(self, plugin_name: str = None):
         """
         Load and validate configuration settings from environment variables, including plugin selection, anomaly detection parameters, notification credentials, cache options, and OpenAI API key.
-        
+
         Raises:
             ConfigError: If required configuration values are missing or invalid.
         """
         try:
             # Plugin selection (validate this first)
-            self.plugin_name = plugin_name or get_env_var("SLEEP_TRACKER_PLUGIN", "emfit")
-            
+            self.plugin_name = plugin_name or get_env_var(
+                "SLEEP_TRACKER_PLUGIN", "emfit"
+            )
+
             # Load the selected plugin early to validate it exists
             self.plugin = self.plugin_manager.get_plugin(self.plugin_name)
             if not self.plugin:
@@ -59,7 +61,7 @@ class SleepAnomalyDetector:
             self.contam_env = get_env_float("IFOREST_CONTAM", 0.05)
             self.window_env = get_env_int("IFOREST_TRAIN_WINDOW", 90)
             self.n_out_env = get_env_int("IFOREST_SHOW_N", 5)
-            
+
             # Notification config
             self.pushover_token = get_env_var("PUSHOVER_APIKEY")
             self.pushover_user = get_env_var("PUSHOVER_USERKEY")
@@ -69,11 +71,11 @@ class SleepAnomalyDetector:
             self.cache_enabled = (
                 get_env_var("SLEEP_TRACKER_CACHE_ENABLED", "true").lower() == "true"
             )
-            self.cache_ttl_hours = get_env_int("SLEEP_TRACKER_CACHE_TTL_HOURS", 24)
+            self.cache_ttl_hours = get_env_int("SLEEP_TRACKER_CACHE_TTL_HOURS", 87600)
 
             # OpenAI config
             self.openai_api_key = get_env_var("OPENAI_API_KEY")
-            
+
             # Validate contamination range
             if not 0.0 < self.contam_env < 1.0:
                 raise ConfigError(
@@ -96,15 +98,17 @@ class SleepAnomalyDetector:
         """
         return self.plugin.get_api_client()
 
-    def get_device_ids(self, auto_discover: bool = True) -> tuple[list[str], dict[str, str]]:
+    def get_device_ids(
+        self, auto_discover: bool = True
+    ) -> tuple[list[str], dict[str, str]]:
         """
         Retrieve the list of available device IDs and their corresponding names from the selected plugin.
-        
+
         Parameters:
-        	auto_discover (bool): Whether to automatically discover devices using the plugin.
-        
+                auto_discover (bool): Whether to automatically discover devices using the plugin.
+
         Returns:
-        	A tuple containing a list of device IDs and a dictionary mapping device IDs to device names.
+                A tuple containing a list of device IDs and a dictionary mapping device IDs to device names.
         """
         return self.plugin.get_device_ids(auto_discover)
 
@@ -117,13 +121,13 @@ class SleepAnomalyDetector:
     ) -> pd.DataFrame:
         """
         Fetches sleep data for a specified device and date range using the configured sleep tracker plugin.
-        
+
         Parameters:
             device_id (str): The unique identifier of the device to fetch data for.
             start_date (datetime): The start date of the data retrieval period.
             end_date (datetime): The end date of the data retrieval period.
             cache (CacheManager): The cache manager to use for caching API responses.
-        
+
         Returns:
             pd.DataFrame: A DataFrame containing the retrieved sleep data.
         """
@@ -132,9 +136,9 @@ class SleepAnomalyDetector:
     def preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Preprocesses the input DataFrame by filling missing numeric values with the median and clipping extreme outliers.
-        
+
         Numeric columns (excluding "date") with missing values are filled using the median of each column. Outliers beyond five standard deviations from the mean are clipped to reduce the impact of extreme values. Raises a DataError if preprocessing fails.
-        
+
         Returns:
             pd.DataFrame: The preprocessed DataFrame with missing values filled and outliers clipped.
         """
@@ -208,7 +212,7 @@ class SleepAnomalyDetector:
     def notify(self, msg: str) -> None:
         """
         Send a push notification with the specified message via Pushover if credentials are configured.
-        
+
         If Pushover credentials are missing, the notification is skipped.
         """
         if not (self.pushover_token and self.pushover_user):
@@ -322,7 +326,7 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
     ) -> None:
         """
         Display summary statistics, recent outliers, and anomaly alerts for sleep data using rich formatting.
-        
+
         Shows a summary table of key sleep metrics, highlights recent outlier days, and provides detailed alert panels if the latest day is anomalous. Optionally includes GPT-based analysis for outliers. Sends notifications if an anomaly is detected and alerting is enabled.
         """
         # Create summary statistics table
@@ -453,9 +457,9 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
     ) -> None:
         """
         Run the anomaly detection pipeline for a single sleep tracking device.
-        
+
         Fetches and preprocesses sleep data for the specified device and date window, selects relevant features, standardizes them, and applies the IsolationForest algorithm to detect anomalies. Optionally, a specific date can be forced as an outlier for testing. Displays results, including recent outliers and optional GPT-based analysis, and sends notifications if enabled.
-        
+
         Parameters:
             device_id (str): Unique identifier for the device to analyze.
             device_name (str): Human-readable name of the device.
@@ -567,12 +571,15 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
     ) -> None:
         """
         Run anomaly detection across all available sleep tracker devices using the configured plugin.
-        
+
         This method initializes caching, retrieves device IDs, and processes each device by running the anomaly detection pipeline. It displays progress and summary panels, handles cache cleanup, and manages error reporting. Optionally, it supports alert notifications, GPT-based anomaly analysis, device auto-discovery, and forcing a specific date as an outlier.
         """
         try:
             self.console.print(
-                Panel.fit(f"🔍 {self.plugin.name.title()} Anomaly Detection Started", style="bold blue")
+                Panel.fit(
+                    f"🔍 {self.plugin.name.title()} Anomaly Detection Started",
+                    style="bold blue",
+                )
             )
 
             # Initialize cache
@@ -635,7 +642,7 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
     def clear_cache(self) -> int:
         """
         Deletes all cached JSON files in the cache directory.
-        
+
         Returns:
             int: The number of cache files that were removed.
         """
