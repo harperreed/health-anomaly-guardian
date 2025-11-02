@@ -249,9 +249,9 @@ class TestCachePluginIntegration:
         key_none = cache_manager._get_cache_key(device_id, date_str, None)
         key_no_plugin = cache_manager._get_cache_key(device_id, date_str)
 
-        # Empty string should be different from None and no plugin
-        assert key_empty != key_none
-        assert key_empty != key_no_plugin
+        # Empty string should be normalized to None to prevent cache key inconsistencies
+        assert key_empty == key_none
+        assert key_empty == key_no_plugin
         assert key_none == key_no_plugin  # None should be treated same as no plugin
 
         # Test with special characters in plugin name

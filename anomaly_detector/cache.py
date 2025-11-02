@@ -37,6 +37,10 @@ class CacheManager:
         Returns:
             str: MD5 hash string representing the cache key.
         """
+        # Normalize empty string to None for consistent cache keys
+        if plugin_name is not None and not plugin_name:
+            plugin_name = None
+
         if plugin_name is not None:
             key_data = f"{plugin_name}:{device_id}:{date}"
         else:
@@ -91,6 +95,22 @@ class CacheManager:
             except Exception as e:
                 logging.debug(f"Cache read error for {date}: {e}")
                 return None
+
+        # Backward compatibility: Try old cache key format (without plugin name)
+        # This helps recover from the empty string plugin_name bug
+        if plugin_name is not None:
+            fallback_key = self._get_cache_key(device_id, date, None)
+            fallback_path = self._get_cache_path(fallback_key)
+            if self._is_cache_valid(fallback_path):
+                try:
+                    with open(fallback_path) as f:
+                        logging.debug(
+                            f"Cache hit using fallback key (no plugin) for {date}"
+                        )
+                        return json.load(f)
+                except Exception as e:
+                    logging.debug(f"Fallback cache read error for {date}: {e}")
+
         return None
 
     def set(
