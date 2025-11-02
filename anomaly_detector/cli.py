@@ -128,6 +128,11 @@ def cli() -> argparse.Namespace:
         help="List all available sleep tracker plugins",
     )
     p.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results in JSON format instead of rich console tables",
+    )
+    p.add_argument(
         "--version",
         action="version",
         version="Sleep Anomaly Detector 1.0.0",
@@ -221,6 +226,7 @@ def main():
             a.gpt_analysis,
             not a.manual_devices,
             a.force_outlier,
+            a.json,
         )
     except KeyboardInterrupt:
         console.print("\n❌ Interrupted by user")

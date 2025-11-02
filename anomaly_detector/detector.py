@@ -3,6 +3,7 @@ ABOUTME: Main SleepAnomalyDetector class for sleep data anomaly detection
 ABOUTME: Uses IsolationForest ML algorithm to detect anomalies in sleep device data
 """
 
+import json
 import logging
 import sys
 from datetime import datetime, timedelta
@@ -315,6 +316,105 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
             logging.error(f"GPT analysis error: {e}")
             return None
 
+    def _generate_json_output(
+        self,
+        df: pd.DataFrame,
+        n_out: int,
+        device_id: str = None,
+        device_name: str = None,
+        gpt_analysis_result: str = None,
+    ) -> dict:
+        """
+        Generate JSON output from the analysis results.
+
+        Parameters:
+            df (pd.DataFrame): DataFrame containing sleep data with anomaly scores
+            n_out (int): Number of recent outliers to include
+            device_id (str, optional): Device identifier
+            device_name (str, optional): Human-readable device name
+            gpt_analysis_result (str, optional): GPT analysis text if available
+
+        Returns:
+            dict: Structured JSON output containing summary stats, outliers, and latest day info
+        """
+        display_name = device_name or device_id or "Unknown Device"
+
+        # Summary statistics
+        summary = {
+            "device_id": device_id,
+            "device_name": display_name,
+            "date_range": {
+                "start": df["date"].min().strftime("%Y-%m-%d"),
+                "end": df["date"].max().strftime("%Y-%m-%d"),
+                "total_days": len(df),
+            },
+            "statistics": {
+                "hr": {
+                    "mean": float(df["hr"].mean()),
+                    "std": float(df["hr"].std()),
+                    "min": float(df["hr"].min()),
+                    "max": float(df["hr"].max()),
+                },
+                "rr": {
+                    "mean": float(df["rr"].mean()),
+                    "std": float(df["rr"].std()),
+                    "min": float(df["rr"].min()),
+                    "max": float(df["rr"].max()),
+                },
+                "sleep_duration": {
+                    "mean": float(df["sleep_dur"].mean()),
+                    "std": float(df["sleep_dur"].std()),
+                    "min": float(df["sleep_dur"].min()),
+                    "max": float(df["sleep_dur"].max()),
+                },
+                "sleep_score": {
+                    "mean": float(df["score"].mean()),
+                    "std": float(df["score"].std()),
+                    "min": float(df["score"].min()),
+                    "max": float(df["score"].max()),
+                },
+            },
+        }
+
+        # Outliers
+        outliers_df = df[df["if_label"] == -1].tail(n_out)
+        outliers = []
+        for _, row in outliers_df.iterrows():
+            outliers.append(
+                {
+                    "date": row.date.strftime("%Y-%m-%d"),
+                    "anomaly_score": float(row.if_score),
+                    "hr": float(row.hr),
+                    "rr": float(row.rr),
+                    "sleep_duration": float(row.sleep_dur),
+                    "sleep_score": float(row.score),
+                }
+            )
+
+        # Latest day
+        latest = df.iloc[-1]
+        latest_day = {
+            "date": latest.date.strftime("%Y-%m-%d"),
+            "is_anomaly": bool(latest.if_label == -1),
+            "anomaly_score": float(latest.if_score),
+            "hr": float(latest.hr),
+            "rr": float(latest.rr),
+            "sleep_duration": float(latest.sleep_dur),
+            "sleep_score": float(latest.score),
+        }
+
+        if gpt_analysis_result:
+            latest_day["gpt_analysis"] = gpt_analysis_result
+
+        return {
+            "summary": summary,
+            "outliers": {
+                "total_count": int((df["if_label"] == -1).sum()),
+                "recent": outliers,
+            },
+            "latest_day": latest_day,
+        }
+
     def display_results(
         self,
         df: pd.DataFrame,
@@ -323,12 +423,40 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
         gpt_analysis: bool = False,
         device_id: str = None,
         device_name: str = None,
+        json_output: bool = False,
     ) -> None:
         """
-        Display summary statistics, recent outliers, and anomaly alerts for sleep data using rich formatting.
+        Display summary statistics, recent outliers, and anomaly alerts for sleep data.
 
         Shows a summary table of key sleep metrics, highlights recent outlier days, and provides detailed alert panels if the latest day is anomalous. Optionally includes GPT-based analysis for outliers. Sends notifications if an anomaly is detected and alerting is enabled.
+
+        Can output in either rich console format (default) or JSON format.
         """
+        latest = df.iloc[-1]
+        gpt_analysis_result = None
+
+        # Get GPT analysis for the latest day if it's an anomaly
+        if latest.if_label == -1:
+            gpt_analysis_result = self.analyze_outlier_with_gpt(latest, df)
+
+        # JSON output mode
+        if json_output:
+            output_data = self._generate_json_output(
+                df, n_out, device_id, device_name, gpt_analysis_result
+            )
+            print(json.dumps(output_data, indent=2))
+            # Still send alerts in JSON mode
+            if alert and latest.if_label == -1:
+                device_info = f" {device_name or device_id}" if device_id else ""
+                base_msg = f"⚠️ {self.plugin.name.title()}{device_info} anomaly {latest.date.date()} (HR {latest.hr:.0f}, RR {latest.rr:.1f}, Score {latest.score:.0f})"
+                if gpt_analysis_result:
+                    full_msg = f"{base_msg}\n\n🤖 Analysis: {gpt_analysis_result}"
+                    self.notify(full_msg)
+                else:
+                    self.notify(base_msg)
+            return
+
+        # Rich console output mode (original behavior)
         # Create summary statistics table
         display_name = device_name or device_id or "Unknown Device"
         title = (
@@ -454,6 +582,7 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
         alert: bool,
         gpt_analysis: bool = False,
         force_outlier_date: str = None,
+        json_output: bool = False,
     ) -> None:
         """
         Run the anomaly detection pipeline for a single sleep tracking device.
@@ -469,19 +598,22 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
             alert (bool): Whether to send notifications for detected anomalies.
             gpt_analysis (bool, optional): Whether to include GPT-based analysis of anomalies.
             force_outlier_date (str, optional): Date (YYYY-MM-DD) to force as an outlier for testing.
+            json_output (bool, optional): Whether to output results in JSON format instead of rich console.
         """
         try:
-            self.console.print(
-                Panel.fit(f"📱 Processing Device: {device_name}", style="bold cyan")
-            )
+            if not json_output:
+                self.console.print(
+                    Panel.fit(f"📱 Processing Device: {device_name}", style="bold cyan")
+                )
 
             end_date = datetime.now().date()
             start_date = end_date - timedelta(days=window)
 
-            self.console.print(
-                f"📅 Analyzing data from {start_date} to {end_date} ({window} days)"
-            )
-            self.console.print(f"🎯 Contamination rate: {contamin:.2%}")
+            if not json_output:
+                self.console.print(
+                    f"📅 Analyzing data from {start_date} to {end_date} ({window} days)"
+                )
+                self.console.print(f"🎯 Contamination rate: {contamin:.2%}")
 
             # Fetch data from sleep tracker API
             df = self.fetch_sleep_data(
@@ -506,9 +638,14 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
             if len(available_cols) < 4:
                 raise DataError(f"Insufficient features available: {available_cols}")
 
-            self.console.print(f"📊 Using features: {available_cols}")
+            if not json_output:
+                self.console.print(f"📊 Using features: {available_cols}")
 
-            with self.console.status("[bold green]Standardizing features..."):
+            if not json_output:
+                with self.console.status("[bold green]Standardizing features..."):
+                    scaler = StandardScaler()
+                    X = scaler.fit_transform(df[available_cols])
+            else:
                 scaler = StandardScaler()
                 X = scaler.fit_transform(df[available_cols])
 
@@ -529,34 +666,62 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
                         df.loc[
                             df["date"].dt.date == force_date, "if_score"
                         ] = -0.5  # Set a clearly anomalous score
-                        self.console.print(
-                            f"🔧 Forced {force_date} to be marked as an outlier for testing"
-                        )
+                        if not json_output:
+                            self.console.print(
+                                f"🔧 Forced {force_date} to be marked as an outlier for testing"
+                            )
                     else:
-                        self.console.print(
-                            f"⚠️  Date {force_date} not found in the dataset"
-                        )
+                        if not json_output:
+                            self.console.print(
+                                f"⚠️  Date {force_date} not found in the dataset"
+                            )
                 except ValueError:
-                    self.console.print(
-                        f"⚠️  Invalid date format: {force_outlier_date}. Use YYYY-MM-DD"
-                    )
+                    if not json_output:
+                        self.console.print(
+                            f"⚠️  Invalid date format: {force_outlier_date}. Use YYYY-MM-DD"
+                        )
 
             # Display results
-            self.display_results(df, n_out, alert, gpt_analysis, device_id, device_name)
+            self.display_results(
+                df, n_out, alert, gpt_analysis, device_id, device_name, json_output
+            )
 
         except DataError as e:
-            self.console.print(
-                Panel(
-                    f"❌ {type(e).__name__} for device {device_id}: {e}",
-                    style="bold red",
+            if not json_output:
+                self.console.print(
+                    Panel(
+                        f"❌ {type(e).__name__} for device {device_id}: {e}",
+                        style="bold red",
+                    )
                 )
-            )
+            else:
+                print(
+                    json.dumps(
+                        {
+                            "error": f"{type(e).__name__}",
+                            "message": str(e),
+                            "device_id": device_id,
+                        }
+                    )
+                )
         except Exception as e:
-            self.console.print(
-                Panel(
-                    f"❌ Unexpected error for device {device_id}: {e}", style="bold red"
+            if not json_output:
+                self.console.print(
+                    Panel(
+                        f"❌ Unexpected error for device {device_id}: {e}",
+                        style="bold red",
+                    )
                 )
-            )
+            else:
+                print(
+                    json.dumps(
+                        {
+                            "error": "UnexpectedError",
+                            "message": str(e),
+                            "device_id": device_id,
+                        }
+                    )
+                )
             logging.exception(f"Unexpected error for device {device_id}")
 
     def run(
@@ -568,19 +733,21 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
         gpt_analysis: bool = False,
         auto_discover: bool = True,
         force_outlier_date: str = None,
+        json_output: bool = False,
     ) -> None:
         """
         Run anomaly detection across all available sleep tracker devices using the configured plugin.
 
-        This method initializes caching, retrieves device IDs, and processes each device by running the anomaly detection pipeline. It displays progress and summary panels, handles cache cleanup, and manages error reporting. Optionally, it supports alert notifications, GPT-based anomaly analysis, device auto-discovery, and forcing a specific date as an outlier.
+        This method initializes caching, retrieves device IDs, and processes each device by running the anomaly detection pipeline. It displays progress and summary panels, handles cache cleanup, and manages error reporting. Optionally, it supports alert notifications, GPT-based anomaly analysis, device auto-discovery, forcing a specific date as an outlier, and JSON output format.
         """
         try:
-            self.console.print(
-                Panel.fit(
-                    f"🔍 {self.plugin.name.title()} Anomaly Detection Started",
-                    style="bold blue",
+            if not json_output:
+                self.console.print(
+                    Panel.fit(
+                        f"🔍 {self.plugin.name.title()} Anomaly Detection Started",
+                        style="bold blue",
+                    )
                 )
-            )
 
             # Initialize cache
             cache = CacheManager(self.cache_dir, self.cache_ttl_hours)
@@ -588,7 +755,7 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
             # Clean up expired cache files
             if self.cache_enabled:
                 expired_count = cache.clear_expired()
-                if expired_count > 0:
+                if expired_count > 0 and not json_output:
                     self.console.print(
                         f"🗑️  Cleaned up {expired_count} expired cache files"
                     )
@@ -599,11 +766,12 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
             if len(device_ids) == 0:
                 raise ConfigError("No device IDs found to process")
 
-            self.console.print(f"📱 Processing {len(device_ids)} device(s)")
+            if not json_output:
+                self.console.print(f"📱 Processing {len(device_ids)} device(s)")
 
             # Process each device
             for i, device_id in enumerate(device_ids):
-                if i > 0:
+                if i > 0 and not json_output:
                     self.console.print(
                         "\n" + "─" * 80 + "\n"
                     )  # Separator between devices
@@ -619,11 +787,15 @@ Please provide a concise analysis (2-3 sentences) explaining why this day was fl
                     alert,
                     gpt_analysis,
                     force_outlier_date,
+                    json_output,
                 )
 
-            self.console.print(
-                Panel.fit("✅ Analysis Complete for All Devices", style="bold green")
-            )
+            if not json_output:
+                self.console.print(
+                    Panel.fit(
+                        "✅ Analysis Complete for All Devices", style="bold green"
+                    )
+                )
 
         except (ConfigError, APIError) as e:
             self.console.print(Panel(f"❌ {type(e).__name__}: {e}", style="bold red"))

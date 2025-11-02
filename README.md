@@ -87,7 +87,21 @@ uv run anomaly-detector --discover-devices
 
 # Clear cache
 uv run anomaly-detector --clear-cache
+
+# Output in JSON format (for programmatic consumption)
+uv run anomaly-detector --json
 ```
+
+### Output Formats
+
+**Rich Console (Default)**: Beautiful tables and colored output for human reading
+
+**JSON Output**: Machine-readable format for integration with other tools
+```bash
+uv run anomaly-detector --json
+```
+
+See [JSON_OUTPUT_EXAMPLE.md](JSON_OUTPUT_EXAMPLE.md) for detailed JSON structure and examples.
 
 ## 📊 How It Works
 
